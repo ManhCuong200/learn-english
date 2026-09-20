@@ -1,0 +1,32 @@
+### Create word
+POST http://localhost:3000/words
+Content-Type: application/json
+
+{
+  "word": "travel",
+  "meaning": "du lịch",
+  "pronunciation": "/ˈtrævəl/",
+  "level": "A2",
+  "categoryId": "d5afff09-3489-4cdb-a052-4034893282d5"
+}
+
+### Get all words
+GET http://localhost:3000/words
+
+### Get word by ID
+GET http://localhost:3000/words/31e96a69-d3ef-4c3f-a729-e7425a990377
+
+### Search words
+GET http://localhost:3000/words/search?q=travel
+
+### Update word
+PATCH http://localhost:3000/words/31e96a69-d3ef-4c3f-a729-e7425a990377
+Content-Type: application/json
+
+{
+  "meaning": "đi du lịch",
+  "level": "B1"
+}
+
+### Delete word
+DELETE http://localhost:3000/words/31e96a69-d3ef-4c3f-a729-e7425a990377
