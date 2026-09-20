@@ -1,0 +1,3 @@
+### Get current user
+GET http://localhost:3000/auth/me
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmNzJmM2Y5MS0xZTFhLTQ5NmUtODA2My1jNTExMGY0Y2NmNjEiLCJlbWFpbCI6ImN1b25nQGV4YW1wbGUuY29tIiwiaWF0IjoxNzg5ODc0NTE0LCJleHAiOjE3ODk4NzU0MTR9.mqYA6zzf4d0b4qkgjPNceouWcp9BtfmW12Td7v86doA

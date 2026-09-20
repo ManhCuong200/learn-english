@@ -1,0 +1,30 @@
+### Create category
+POST http://localhost:3000/categories
+Content-Type: application/json
+
+{
+  "name": "Travel",
+  "slug": "travel"
+}
+
+
+### Get all categories
+GET http://localhost:3000/categories
+
+
+### Get category by slug
+GET http://localhost:3000/categories/travel
+
+
+### Update category
+PATCH http://localhost:3000/categories/3f597e33-5780-42a4-99a7-afb604d4d90e
+Content-Type: application/json
+
+{
+  "name": "Travel & Tourism",
+  "slug": "travel-tourism"
+}
+
+
+### Delete category
+DELETE http://localhost:3000/categories/3f597e33-5780-42a4-99a7-afb604d4d90e
