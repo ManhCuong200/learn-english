@@ -12,3 +12,31 @@ GET http://localhost:3000/auth/me
 
 ### Logout
 POST http://localhost:3000/auth/logout
+
+### Forgot Password
+POST http://localhost:3000/auth/forgot-password
+Content-Type: application/json
+
+{
+  "email": "tmanhcuong2k4@gmail.com"
+}
+
+### Reset Password
+
+POST http://localhost:3000/auth/reset-password
+Content-Type: application/json
+
+{
+  "token": "082b57db1d37cb2392fb469cac3cdc5d54a670687045458538358e36f1037896",
+  "password": "NewPassword123"
+}
+
+### Login with new password
+
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "email": "cuong@example.com",
+  "password": "NewPassword123"
+}
