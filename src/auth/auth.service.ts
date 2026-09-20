@@ -6,6 +6,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
+import { UserRole } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -45,6 +46,7 @@ export class AuthService {
         id: true,
         name: true,
         email: true,
+        role: true,
         createdAt: true,
       },
     });
@@ -75,6 +77,7 @@ export class AuthService {
     const payload = {
       sub: user.id,
       email: user.email,
+      role: user.role,
     };
 
     const accessToken = await this.jwtService.signAsync(payload);
@@ -85,6 +88,41 @@ export class AuthService {
         id: user.id,
         name: user.name,
         email: user.email,
+        role: user.role,
+      },
+    };
+  }
+
+  async adminLogin(dto: LoginDto) {
+    const email = dto.email.trim().toLowerCase();
+
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user || user.role !== UserRole.ADMIN) {
+      throw new UnauthorizedException('Invalid admin credentials');
+    }
+
+    const passwordMatched = await bcrypt.compare(dto.password, user.password);
+
+    if (!passwordMatched) {
+      throw new UnauthorizedException('Invalid admin credentials');
+    }
+
+    const accessToken = await this.jwtService.signAsync({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
+    return {
+      accessToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
       },
     };
   }

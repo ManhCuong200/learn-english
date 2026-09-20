@@ -7,6 +7,15 @@ Content-Type: application/json
   "password": "12345678"
 }
 
+### Admin Login
+POST http://localhost:3000/auth/admin/login
+Content-Type: application/json
+
+{
+  "email": "admin@english-learning.local",
+  "password": "change-this-admin-password"
+}
+
 ### Me
 GET http://localhost:3000/auth/me
 

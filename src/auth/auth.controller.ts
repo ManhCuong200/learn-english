@@ -20,6 +20,7 @@ interface AuthenticatedRequest extends Request {
     id: string;
     name: string;
     email: string;
+    role: 'USER' | 'ADMIN';
   };
 }
 
@@ -38,6 +39,25 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.login(dto);
+
+    res.cookie('access_token', result.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 15 * 60 * 1000,
+    });
+
+    return {
+      user: result.user,
+    };
+  }
+
+  @Post('admin/login')
+  async adminLogin(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.adminLogin(dto);
 
     res.cookie('access_token', result.accessToken, {
       httpOnly: true,
