@@ -49,6 +49,32 @@ describe('AuthService', () => {
     expect(service).toBeDefined();
   });
 
+  it('returns a token for a valid user', async () => {
+    const password = 'UserPassword123';
+    findUnique.mockResolvedValue({
+      id: 'user-id',
+      name: 'Regular User',
+      email: 'user@example.com',
+      role: UserRole.USER,
+      password: await bcrypt.hash(password, 4),
+    });
+
+    await expect(
+      service.login({
+        email: 'user@example.com',
+        password,
+      }),
+    ).resolves.toEqual({
+      accessToken: 'admin-token',
+      user: {
+        id: 'user-id',
+        name: 'Regular User',
+        email: 'user@example.com',
+        role: UserRole.USER,
+      },
+    });
+  });
+
   it('rejects a non-admin from admin login', async () => {
     findUnique.mockResolvedValue({
       id: 'user-id',

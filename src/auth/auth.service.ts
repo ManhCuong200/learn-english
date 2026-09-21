@@ -58,56 +58,32 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const email = dto.email.trim().toLowerCase();
-
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException('Invalid email or password');
-    }
-
-    const passwordMatched = await bcrypt.compare(dto.password, user.password);
-
-    if (!passwordMatched) {
-      throw new UnauthorizedException('Invalid email or password');
-    }
-
-    const payload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    };
-
-    const accessToken = await this.jwtService.signAsync(payload);
-
-    return {
-      accessToken,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    };
+    return this.authenticate(dto, 'Invalid email or password');
   }
 
   async adminLogin(dto: LoginDto) {
+    return this.authenticate(dto, 'Invalid admin credentials', UserRole.ADMIN);
+  }
+
+  private async authenticate(
+    dto: LoginDto,
+    errorMessage: string,
+    requiredRole?: UserRole,
+  ) {
     const email = dto.email.trim().toLowerCase();
 
     const user = await this.prisma.user.findUnique({
       where: { email },
     });
 
-    if (!user || user.role !== UserRole.ADMIN) {
-      throw new UnauthorizedException('Invalid admin credentials');
+    if (!user || (requiredRole && user.role !== requiredRole)) {
+      throw new UnauthorizedException(errorMessage);
     }
 
     const passwordMatched = await bcrypt.compare(dto.password, user.password);
 
     if (!passwordMatched) {
-      throw new UnauthorizedException('Invalid admin credentials');
+      throw new UnauthorizedException(errorMessage);
     }
 
     const accessToken = await this.jwtService.signAsync({
