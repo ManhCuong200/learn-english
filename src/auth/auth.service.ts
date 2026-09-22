@@ -25,17 +25,13 @@ export class AuthService {
 
   async register(dto: RegisterDto) {
     const email = dto.email.trim().toLowerCase();
-
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
     });
-
     if (existingUser) {
       throw new ConflictException('Email already exists');
     }
-
     const hashedPassword = await bcrypt.hash(dto.password, 12);
-
     const user = await this.prisma.user.create({
       data: {
         name: dto.name.trim(),
@@ -164,7 +160,7 @@ export class AuthService {
       },
     });
 
-    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3001';
+    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
 
     const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
 
