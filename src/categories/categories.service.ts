@@ -84,10 +84,7 @@ export class CategoriesService {
     if (name || slug) {
       const duplicateCategory = await this.prisma.category.findFirst({
         where: {
-          OR: [
-            ...(name ? [{ name }] : []),
-            ...(slug ? [{ slug }] : []),
-          ],
+          OR: [...(name ? [{ name }] : []), ...(slug ? [{ slug }] : [])],
           NOT: {
             id,
           },
@@ -95,9 +92,7 @@ export class CategoriesService {
       });
 
       if (duplicateCategory) {
-        throw new ConflictException(
-          'Category name or slug already exists',
-        );
+        throw new ConflictException('Category name or slug already exists');
       }
     }
 

@@ -15,6 +15,13 @@ import { RegisterDto } from './dto/register.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { MailService } from '../mail/mail.service';
 
+export interface OAuthUser {
+  provider: 'google' | 'facebook';
+  providerId: string;
+  email: string;
+  name: string;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -76,10 +83,68 @@ export class AuthService {
       throw new UnauthorizedException(errorMessage);
     }
 
+    if (!user.password) {
+      throw new UnauthorizedException('Please login with Google');
+    }
+
     const passwordMatched = await bcrypt.compare(dto.password, user.password);
 
     if (!passwordMatched) {
       throw new UnauthorizedException(errorMessage);
+    }
+
+    const accessToken = await this.jwtService.signAsync({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
+    return {
+      accessToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    };
+  }
+
+  async validateOAuthUser(profile: OAuthUser) {
+    const searchCondition = profile.provider === 'google' 
+      ? { googleId: profile.providerId } 
+      : { facebookId: profile.providerId };
+
+    let user = await this.prisma.user.findUnique({
+      where: searchCondition as any,
+    });
+
+    if (!user) {
+      user = await this.prisma.user.findUnique({
+        where: { email: profile.email },
+      });
+
+      if (user) {
+        // Link new provider to existing user
+        const updateData = profile.provider === 'google' 
+          ? { googleId: profile.providerId } 
+          : { facebookId: profile.providerId };
+
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: updateData,
+        });
+      } else {
+        // Create new user
+        user = await this.prisma.user.create({
+          data: {
+            name: profile.name,
+            email: profile.email,
+            googleId: profile.provider === 'google' ? profile.providerId : null,
+            facebookId: profile.provider === 'facebook' ? profile.providerId : null,
+          },
+        });
+      }
     }
 
     const accessToken = await this.jwtService.signAsync({

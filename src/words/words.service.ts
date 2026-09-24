@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateWordDto } from './dto/create-word.dto';
 import { UpdateWordDto } from './dto/update-word.dto';
@@ -38,7 +35,7 @@ export class WordsService {
   async findAll() {
     return this.prisma.word.findMany({
       orderBy: {
-        createdAt: 'desc',
+        createdAt: 'asc',
       },
       include: {
         category: true,
