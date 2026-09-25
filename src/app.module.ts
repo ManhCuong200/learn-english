@@ -8,6 +8,8 @@ import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
 import { WordsModule } from './words/words.module';
 import { MailModule } from './mail/mail.module';
+import { ExamplesModule } from './examples/examples.module';
+import { LearningHistoryModule } from './learning-history/learning-history.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { MailModule } from './mail/mail.module';
     CategoriesModule,
     WordsModule,
     MailModule,
+    ExamplesModule,
+    LearningHistoryModule,
   ],
   controllers: [AppController],
   providers: [

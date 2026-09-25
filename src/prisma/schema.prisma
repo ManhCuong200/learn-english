@@ -25,6 +25,7 @@ model User {
 
   resetTokens         PasswordResetToken[]
   sessions            Session[]
+  learningHistories   LearningHistory[]
 
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
@@ -92,6 +93,27 @@ model Session {
   userId           String
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt        DateTime @default(now())
+
+  @@index([userId])
+}
+
+enum LearningActivityType {
+  VOCABULARY
+  FLASHCARD
+  QUIZ
+}
+
+model LearningHistory {
+  id          String               @id @default(uuid())
+  type        LearningActivityType
+  title       String
+  description String
+  referenceId String?
+  
+  userId      String
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime             @default(now())
 
   @@index([userId])
 }
