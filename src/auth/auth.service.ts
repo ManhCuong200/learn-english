@@ -1,8 +1,11 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { authenticator } from 'otplib';
+import * as qrcode from 'qrcode';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
@@ -14,6 +17,11 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { MailService } from '../mail/mail.service';
+
+export interface RequestMeta {
+  ip: string;
+  userAgent: string;
+}
 
 export interface OAuthUser {
   provider: 'google' | 'facebook';
@@ -60,16 +68,17 @@ export class AuthService {
     };
   }
 
-  async login(dto: LoginDto) {
-    return this.authenticate(dto, 'Invalid email or password');
+  async login(dto: LoginDto, reqMeta: RequestMeta) {
+    return this.authenticate(dto, reqMeta, 'Invalid email or password');
   }
 
-  async adminLogin(dto: LoginDto) {
-    return this.authenticate(dto, 'Invalid admin credentials', UserRole.ADMIN);
+  async adminLogin(dto: LoginDto, reqMeta: RequestMeta) {
+    return this.authenticate(dto, reqMeta, 'Invalid admin credentials', UserRole.ADMIN);
   }
 
   private async authenticate(
     dto: LoginDto,
+    reqMeta: RequestMeta,
     errorMessage: string,
     requiredRole?: UserRole,
   ) {
@@ -84,13 +93,61 @@ export class AuthService {
     }
 
     if (!user.password) {
-      throw new UnauthorizedException('Please login with Google');
+      throw new UnauthorizedException('Please login with Google or Facebook');
+    }
+
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      throw new UnauthorizedException('Account locked due to too many failed attempts. Try again later.');
     }
 
     const passwordMatched = await bcrypt.compare(dto.password, user.password);
 
     if (!passwordMatched) {
+      const failedAttempts = user.failedLoginAttempts + 1;
+      let lockedUntil: Date | null = null;
+      if (failedAttempts >= 5) {
+        lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+      }
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { failedLoginAttempts: failedAttempts, lockedUntil },
+      });
       throw new UnauthorizedException(errorMessage);
+    }
+
+    if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { failedLoginAttempts: 0, lockedUntil: null },
+      });
+    }
+
+    if (user.isTwoFactorEnabled) {
+      if (!dto.twoFactorCode) {
+        return { isTwoFactorRequired: true };
+      }
+      
+      const isCodeValid = authenticator.verify({
+        token: dto.twoFactorCode,
+        secret: user.twoFactorSecret!,
+      });
+
+      if (!isCodeValid) {
+        throw new UnauthorizedException('Invalid 2FA code');
+      }
+    }
+
+    return this.createSession(user, reqMeta);
+  }
+
+  private async createSession(user: any, reqMeta: RequestMeta) {
+    const latestSession = await this.prisma.session.findFirst({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (latestSession && (latestSession.ipAddress !== reqMeta.ip || latestSession.userAgent !== reqMeta.userAgent)) {
+      await this.mailService.sendSecurityAlertEmail(user.email, reqMeta.ip, reqMeta.userAgent);
     }
 
     const accessToken = await this.jwtService.signAsync({
@@ -99,18 +156,33 @@ export class AuthService {
       role: user.role,
     });
 
+    const refreshToken = randomBytes(40).toString('hex');
+    const refreshTokenHash = createHash('sha256').update(refreshToken).digest('hex');
+
+    await this.prisma.session.create({
+      data: {
+        userId: user.id,
+        refreshTokenHash,
+        ipAddress: reqMeta.ip,
+        userAgent: reqMeta.userAgent,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      }
+    });
+
     return {
       accessToken,
+      refreshToken,
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
+        isTwoFactorEnabled: user.isTwoFactorEnabled,
       },
     };
   }
 
-  async validateOAuthUser(profile: OAuthUser) {
+  async validateOAuthUser(profile: OAuthUser, reqMeta: RequestMeta) {
     const searchCondition = profile.provider === 'google' 
       ? { googleId: profile.providerId } 
       : { facebookId: profile.providerId };
@@ -147,21 +219,134 @@ export class AuthService {
       }
     }
 
+    return this.createSession(user, reqMeta);
+  }
+
+  async refreshToken(token: string) {
+    if (!token) throw new UnauthorizedException('No refresh token provided');
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    
+    const session = await this.prisma.session.findUnique({
+      where: { refreshTokenHash: tokenHash },
+      include: { user: true },
+    });
+
+    if (!session || session.expiresAt < new Date()) {
+      if (session) {
+        await this.prisma.session.delete({ where: { id: session.id } });
+      }
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    const newRefreshToken = randomBytes(40).toString('hex');
+    const newRefreshTokenHash = createHash('sha256').update(newRefreshToken).digest('hex');
+
+    await this.prisma.session.update({
+      where: { id: session.id },
+      data: {
+        refreshTokenHash: newRefreshTokenHash,
+        lastActive: new Date(),
+      },
+    });
+
     const accessToken = await this.jwtService.signAsync({
-      sub: user.id,
-      email: user.email,
-      role: user.role,
+      sub: session.user.id,
+      email: session.user.email,
+      role: session.user.role,
     });
 
     return {
       accessToken,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
+      refreshToken: newRefreshToken,
     };
+  }
+
+  async revokeSession(token: string) {
+    if (!token) return;
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    await this.prisma.session.deleteMany({
+      where: { refreshTokenHash: tokenHash },
+    });
+  }
+
+  async getSessions(userId: string) {
+    return this.prisma.session.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        ipAddress: true,
+        userAgent: true,
+        lastActive: true,
+        createdAt: true,
+      },
+      orderBy: { lastActive: 'desc' },
+    });
+  }
+
+  async revokeSessionById(userId: string, sessionId: string) {
+    await this.prisma.session.deleteMany({
+      where: {
+        id: sessionId,
+        userId: userId,
+      },
+    });
+  }
+
+  async generateTwoFactorSecret(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    const secret = authenticator.generateSecret();
+    const otpauthUrl = authenticator.keyuri(user.email, 'EnglishLearningApp', secret);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { twoFactorSecret: secret },
+    });
+
+    const qrCodeDataUrl = await qrcode.toDataURL(otpauthUrl);
+
+    return {
+      secret,
+      qrCodeDataUrl,
+    };
+  }
+
+  async turnOnTwoFactorAuthentication(userId: string, code: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    if (!user.twoFactorSecret) {
+      throw new BadRequestException('2FA secret not generated');
+    }
+
+    const isCodeValid = authenticator.verify({
+      token: code,
+      secret: user.twoFactorSecret,
+    });
+
+    if (!isCodeValid) {
+      throw new BadRequestException('Invalid 2FA code');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { isTwoFactorEnabled: true },
+    });
+
+    return { message: '2FA turned on successfully' };
+  }
+
+  async turnOffTwoFactorAuthentication(userId: string) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { isTwoFactorEnabled: false, twoFactorSecret: null },
+    });
+
+    return { message: '2FA turned off successfully' };
   }
 
   async getMe(userId: string) {
@@ -171,6 +356,7 @@ export class AuthService {
         id: true,
         name: true,
         email: true,
+        isTwoFactorEnabled: true,
         createdAt: true,
         updatedAt: true,
       },

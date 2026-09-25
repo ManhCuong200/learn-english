@@ -63,4 +63,29 @@ export class MailService {
       throw new InternalServerErrorException(error.message);
     }
   }
+
+  async sendSecurityAlertEmail(email: string, ip: string, userAgent: string): Promise<void> {
+    const { error } = await this.resend.emails.send({
+      from: 'English Learning <onboarding@resend.dev>',
+      to: [email],
+      subject: 'New login detected',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1>New Login Detected</h1>
+          <p>We noticed a new login to your account from a new device or location.</p>
+          <ul>
+            <li><strong>IP Address:</strong> ${ip}</li>
+            <li><strong>Device/Browser:</strong> ${userAgent}</li>
+            <li><strong>Time:</strong> ${new Date().toLocaleString()}</li>
+          </ul>
+          <p>If this was you, you can ignore this email. If you don't recognize this activity, please change your password immediately and review your active sessions.</p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error('Resend error (security alert):', error);
+      // We don't throw error here to not block the login process
+    }
+  }
 }

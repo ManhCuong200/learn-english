@@ -24,6 +24,11 @@ describe('AuthService', () => {
             user: {
               findUnique,
               create: jest.fn(),
+              update: jest.fn(),
+            },
+            session: {
+              findFirst: jest.fn().mockResolvedValue(null),
+              create: jest.fn(),
             },
           },
         },
@@ -37,6 +42,7 @@ describe('AuthService', () => {
           provide: MailService,
           useValue: {
             sendPasswordResetEmail: jest.fn(),
+            sendSecurityAlertEmail: jest.fn(),
           },
         },
       ],
@@ -59,19 +65,18 @@ describe('AuthService', () => {
       password: await bcrypt.hash(password, 4),
     });
 
-    await expect(
-      service.login({
-        email: 'user@example.com',
-        password,
-      }),
-    ).resolves.toEqual({
-      accessToken: 'admin-token',
-      user: {
-        id: 'user-id',
-        name: 'Regular User',
-        email: 'user@example.com',
-        role: UserRole.USER,
-      },
+    const result = await service.login({
+      email: 'user@example.com',
+      password,
+    }, { ip: '1.2.3.4', userAgent: 'test' }) as any;
+
+    expect(result.accessToken).toEqual('admin-token');
+    expect(result.refreshToken).toBeDefined();
+    expect(result.user).toEqual({
+      id: 'user-id',
+      name: 'Regular User',
+      email: 'user@example.com',
+      role: UserRole.USER,
     });
   });
 
@@ -87,7 +92,7 @@ describe('AuthService', () => {
       service.adminLogin({
         email: 'user@example.com',
         password: 'password',
-      }),
+      }, { ip: '1.2.3.4', userAgent: 'test' }),
     ).rejects.toThrow('Invalid admin credentials');
     expect(signAsync).not.toHaveBeenCalled();
   });
@@ -102,19 +107,18 @@ describe('AuthService', () => {
       password: await bcrypt.hash(password, 4),
     });
 
-    await expect(
-      service.adminLogin({
-        email: 'admin@example.com',
-        password,
-      }),
-    ).resolves.toEqual({
-      accessToken: 'admin-token',
-      user: {
-        id: 'admin-id',
-        name: 'Administrator',
-        email: 'admin@example.com',
-        role: UserRole.ADMIN,
-      },
+    const result = await service.adminLogin({
+      email: 'admin@example.com',
+      password,
+    }, { ip: '1.2.3.4', userAgent: 'test' }) as any;
+
+    expect(result.accessToken).toEqual('admin-token');
+    expect(result.refreshToken).toBeDefined();
+    expect(result.user).toEqual({
+      id: 'admin-id',
+      name: 'Administrator',
+      email: 'admin@example.com',
+      role: UserRole.ADMIN,
     });
   });
 });

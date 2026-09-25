@@ -23,7 +23,13 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  resetTokens PasswordResetToken[]
+  resetTokens         PasswordResetToken[]
+  sessions            Session[]
+
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  twoFactorSecret     String?
+  isTwoFactorEnabled  Boolean   @default(false)
 }
 
 model Category {
@@ -74,4 +80,18 @@ model PasswordResetToken {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+model Session {
+  id               String   @id @default(uuid())
+  refreshTokenHash String   @unique
+  ipAddress        String?
+  userAgent        String?
+  lastActive       DateTime @default(now())
+  expiresAt        DateTime
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+
+  @@index([userId])
 }
