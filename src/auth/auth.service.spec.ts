@@ -65,10 +65,13 @@ describe('AuthService', () => {
       password: await bcrypt.hash(password, 4),
     });
 
-    const result = await service.login({
-      email: 'user@example.com',
-      password,
-    }, { ip: '1.2.3.4', userAgent: 'test' }) as any;
+    const result = (await service.login(
+      {
+        email: 'user@example.com',
+        password,
+      },
+      { ip: '1.2.3.4', userAgent: 'test' },
+    )) as any;
 
     expect(result.accessToken).toEqual('admin-token');
     expect(result.refreshToken).toBeDefined();
@@ -89,10 +92,13 @@ describe('AuthService', () => {
     });
 
     await expect(
-      service.adminLogin({
-        email: 'user@example.com',
-        password: 'password',
-      }, { ip: '1.2.3.4', userAgent: 'test' }),
+      service.adminLogin(
+        {
+          email: 'user@example.com',
+          password: 'password',
+        },
+        { ip: '1.2.3.4', userAgent: 'test' },
+      ),
     ).rejects.toThrow('Invalid admin credentials');
     expect(signAsync).not.toHaveBeenCalled();
   });
@@ -107,10 +113,13 @@ describe('AuthService', () => {
       password: await bcrypt.hash(password, 4),
     });
 
-    const result = await service.adminLogin({
-      email: 'admin@example.com',
-      password,
-    }, { ip: '1.2.3.4', userAgent: 'test' }) as any;
+    const result = (await service.adminLogin(
+      {
+        email: 'admin@example.com',
+        password,
+      },
+      { ip: '1.2.3.4', userAgent: 'test' },
+    )) as any;
 
     expect(result.accessToken).toEqual('admin-token');
     expect(result.refreshToken).toBeDefined();

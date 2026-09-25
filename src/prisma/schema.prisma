@@ -26,6 +26,8 @@ model User {
   resetTokens         PasswordResetToken[]
   sessions            Session[]
   learningHistories   LearningHistory[]
+  wordProgresses      WordProgress[]
+  flashcardReviews    FlashcardReview[]
 
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
@@ -54,6 +56,8 @@ model Word {
   category   Category @relation(fields: [categoryId], references: [id])
 
   examples Example[]
+  wordProgresses   WordProgress[]
+  flashcardReviews FlashcardReview[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -116,4 +120,50 @@ model LearningHistory {
   createdAt   DateTime             @default(now())
 
   @@index([userId])
+}
+
+enum WordProgressStatus {
+  NEW
+  LEARNING
+  REVIEW
+}
+
+enum FlashcardReviewResultType {
+  AGAIN
+  HARD
+  GOOD
+  EASY
+}
+
+model WordProgress {
+  id             String             @id @default(uuid())
+  userId         String
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wordId         String
+  word           Word               @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  status         WordProgressStatus @default(NEW)
+  reviewCount    Int                @default(0)
+  lastReviewedAt DateTime?
+  nextReviewAt   DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@unique([userId, wordId])
+  @@index([userId])
+  @@index([wordId])
+  @@index([nextReviewAt])
+}
+
+model FlashcardReview {
+  id         String                    @id @default(uuid())
+  userId     String
+  user       User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wordId     String
+  word       Word                      @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  result     FlashcardReviewResultType
+  reviewedAt DateTime                  @default(now())
+
+  @@index([userId])
+  @@index([wordId])
+  @@index([reviewedAt])
 }

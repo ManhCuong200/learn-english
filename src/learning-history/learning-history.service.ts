@@ -6,7 +6,12 @@ import { LearningActivityType } from '@prisma/client';
 export class LearningHistoryService {
   constructor(private prisma: PrismaService) {}
 
-  async getHistory(userId: string, page: number, limit: number, type?: LearningActivityType) {
+  async getHistory(
+    userId: string,
+    page: number,
+    limit: number,
+    type?: LearningActivityType,
+  ) {
     const skip = (page - 1) * limit;
 
     const where = {
@@ -35,7 +40,15 @@ export class LearningHistoryService {
     };
   }
 
-  async createHistory(userId: string, data: { type: LearningActivityType; title: string; description: string; referenceId?: string }) {
+  async createHistory(
+    userId: string,
+    data: {
+      type: LearningActivityType;
+      title: string;
+      description: string;
+      referenceId?: string;
+    },
+  ) {
     return this.prisma.learningHistory.create({
       data: {
         userId,

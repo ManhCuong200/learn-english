@@ -38,8 +38,12 @@ export class ExamplesService {
     return this.prisma.example.update({
       where: { id },
       data: {
-        ...(updateExampleDto.content !== undefined && { content: updateExampleDto.content }),
-        ...(updateExampleDto.meaning !== undefined && { meaning: updateExampleDto.meaning }),
+        ...(updateExampleDto.content !== undefined && {
+          content: updateExampleDto.content,
+        }),
+        ...(updateExampleDto.meaning !== undefined && {
+          meaning: updateExampleDto.meaning,
+        }),
       },
     });
   }

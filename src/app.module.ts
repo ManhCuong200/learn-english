@@ -10,13 +10,17 @@ import { WordsModule } from './words/words.module';
 import { MailModule } from './mail/mail.module';
 import { ExamplesModule } from './examples/examples.module';
 import { LearningHistoryModule } from './learning-history/learning-history.module';
+import { FlashcardModule } from './flashcard/flashcard.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
-    ThrottlerModule.forRoot([{
-      ttl: 60000,
-      limit: 10,
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 10,
+      },
+    ]),
     PrismaModule,
     AuthModule,
     CategoriesModule,
@@ -24,6 +28,8 @@ import { LearningHistoryModule } from './learning-history/learning-history.modul
     MailModule,
     ExamplesModule,
     LearningHistoryModule,
+    FlashcardModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [

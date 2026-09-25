@@ -73,7 +73,12 @@ export class AuthService {
   }
 
   async adminLogin(dto: LoginDto, reqMeta: RequestMeta) {
-    return this.authenticate(dto, reqMeta, 'Invalid admin credentials', UserRole.ADMIN);
+    return this.authenticate(
+      dto,
+      reqMeta,
+      'Invalid admin credentials',
+      UserRole.ADMIN,
+    );
   }
 
   private async authenticate(
@@ -97,7 +102,9 @@ export class AuthService {
     }
 
     if (user.lockedUntil && user.lockedUntil > new Date()) {
-      throw new UnauthorizedException('Account locked due to too many failed attempts. Try again later.');
+      throw new UnauthorizedException(
+        'Account locked due to too many failed attempts. Try again later.',
+      );
     }
 
     const passwordMatched = await bcrypt.compare(dto.password, user.password);
@@ -126,7 +133,7 @@ export class AuthService {
       if (!dto.twoFactorCode) {
         return { isTwoFactorRequired: true };
       }
-      
+
       const isCodeValid = authenticator.verify({
         token: dto.twoFactorCode,
         secret: user.twoFactorSecret!,
@@ -146,8 +153,16 @@ export class AuthService {
       orderBy: { createdAt: 'desc' },
     });
 
-    if (latestSession && (latestSession.ipAddress !== reqMeta.ip || latestSession.userAgent !== reqMeta.userAgent)) {
-      await this.mailService.sendSecurityAlertEmail(user.email, reqMeta.ip, reqMeta.userAgent);
+    if (
+      latestSession &&
+      (latestSession.ipAddress !== reqMeta.ip ||
+        latestSession.userAgent !== reqMeta.userAgent)
+    ) {
+      await this.mailService.sendSecurityAlertEmail(
+        user.email,
+        reqMeta.ip,
+        reqMeta.userAgent,
+      );
     }
 
     const accessToken = await this.jwtService.signAsync({
@@ -157,7 +172,9 @@ export class AuthService {
     });
 
     const refreshToken = randomBytes(40).toString('hex');
-    const refreshTokenHash = createHash('sha256').update(refreshToken).digest('hex');
+    const refreshTokenHash = createHash('sha256')
+      .update(refreshToken)
+      .digest('hex');
 
     await this.prisma.session.create({
       data: {
@@ -166,7 +183,7 @@ export class AuthService {
         ipAddress: reqMeta.ip,
         userAgent: reqMeta.userAgent,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-      }
+      },
     });
 
     return {
@@ -183,9 +200,10 @@ export class AuthService {
   }
 
   async validateOAuthUser(profile: OAuthUser, reqMeta: RequestMeta) {
-    const searchCondition = profile.provider === 'google' 
-      ? { googleId: profile.providerId } 
-      : { facebookId: profile.providerId };
+    const searchCondition =
+      profile.provider === 'google'
+        ? { googleId: profile.providerId }
+        : { facebookId: profile.providerId };
 
     let user = await this.prisma.user.findUnique({
       where: searchCondition as any,
@@ -198,9 +216,10 @@ export class AuthService {
 
       if (user) {
         // Link new provider to existing user
-        const updateData = profile.provider === 'google' 
-          ? { googleId: profile.providerId } 
-          : { facebookId: profile.providerId };
+        const updateData =
+          profile.provider === 'google'
+            ? { googleId: profile.providerId }
+            : { facebookId: profile.providerId };
 
         user = await this.prisma.user.update({
           where: { id: user.id },
@@ -213,7 +232,8 @@ export class AuthService {
             name: profile.name,
             email: profile.email,
             googleId: profile.provider === 'google' ? profile.providerId : null,
-            facebookId: profile.provider === 'facebook' ? profile.providerId : null,
+            facebookId:
+              profile.provider === 'facebook' ? profile.providerId : null,
           },
         });
       }
@@ -225,7 +245,7 @@ export class AuthService {
   async refreshToken(token: string) {
     if (!token) throw new UnauthorizedException('No refresh token provided');
     const tokenHash = createHash('sha256').update(token).digest('hex');
-    
+
     const session = await this.prisma.session.findUnique({
       where: { refreshTokenHash: tokenHash },
       include: { user: true },
@@ -239,7 +259,9 @@ export class AuthService {
     }
 
     const newRefreshToken = randomBytes(40).toString('hex');
-    const newRefreshTokenHash = createHash('sha256').update(newRefreshToken).digest('hex');
+    const newRefreshTokenHash = createHash('sha256')
+      .update(newRefreshToken)
+      .digest('hex');
 
     await this.prisma.session.update({
       where: { id: session.id },
@@ -297,7 +319,11 @@ export class AuthService {
     if (!user) throw new UnauthorizedException('User not found');
 
     const secret = authenticator.generateSecret();
-    const otpauthUrl = authenticator.keyuri(user.email, 'EnglishLearningApp', secret);
+    const otpauthUrl = authenticator.keyuri(
+      user.email,
+      'EnglishLearningApp',
+      secret,
+    );
 
     await this.prisma.user.update({
       where: { id: user.id },
@@ -314,7 +340,7 @@ export class AuthService {
 
   async turnOnTwoFactorAuthentication(userId: string, code: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    
+
     if (!user) {
       throw new BadRequestException('User not found');
     }

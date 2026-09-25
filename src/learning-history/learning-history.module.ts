@@ -6,6 +6,6 @@ import { PrismaModule } from '../prisma/prisma.module';
 @Module({
   imports: [PrismaModule],
   controllers: [LearningHistoryController],
-  providers: [LearningHistoryService]
+  providers: [LearningHistoryService],
 })
 export class LearningHistoryModule {}

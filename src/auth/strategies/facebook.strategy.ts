@@ -23,7 +23,7 @@ export class FacebookStrategy extends PassportStrategy(Strategy, 'facebook') {
     done: (error: any, user: any, info?: any) => void,
   ): void {
     const { id, emails, name, displayName } = profile;
-    
+
     let userEmail = '';
     if (emails && emails.length > 0) {
       userEmail = emails[0].value;
@@ -40,7 +40,7 @@ export class FacebookStrategy extends PassportStrategy(Strategy, 'facebook') {
       email: userEmail,
       name: userName,
     };
-    
+
     done(null, user);
   }
 }

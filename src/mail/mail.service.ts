@@ -64,7 +64,11 @@ export class MailService {
     }
   }
 
-  async sendSecurityAlertEmail(email: string, ip: string, userAgent: string): Promise<void> {
+  async sendSecurityAlertEmail(
+    email: string,
+    ip: string,
+    userAgent: string,
+  ): Promise<void> {
     const { error } = await this.resend.emails.send({
       from: 'English Learning <onboarding@resend.dev>',
       to: [email],
