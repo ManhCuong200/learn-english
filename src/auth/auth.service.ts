@@ -158,11 +158,11 @@ export class AuthService {
       (latestSession.ipAddress !== reqMeta.ip ||
         latestSession.userAgent !== reqMeta.userAgent)
     ) {
-      await this.mailService.sendSecurityAlertEmail(
-        user.email,
-        reqMeta.ip,
-        reqMeta.userAgent,
-      );
+      this.mailService
+        .sendSecurityAlertEmail(user.email, reqMeta.ip, reqMeta.userAgent)
+        .catch((err) =>
+          console.error('Failed to send security alert email asynchronously:', err),
+        );
     }
 
     const accessToken = await this.jwtService.signAsync({
