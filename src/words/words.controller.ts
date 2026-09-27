@@ -13,6 +13,7 @@ import {
 import { WordsService } from './words.service';
 import { CreateWordDto } from './dto/create-word.dto';
 import { UpdateWordDto } from './dto/update-word.dto';
+import { BulkCrawlDto } from './dto/bulk-crawl.dto';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -24,6 +25,17 @@ export class WordsController {
   @UseGuards(JwtAuthGuard, AdminGuard)
   create(@Body() dto: CreateWordDto) {
     return this.wordsService.create(dto);
+  }
+
+  @Post('bulk-crawl')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  bulkCrawl(@Body() dto: BulkCrawlDto) {
+    return this.wordsService.bulkCrawl(dto);
+  }
+
+  @Get('fetch-info')
+  fetchInfo(@Query('word') word: string) {
+    return this.wordsService.fetchWordInfo(word ?? '');
   }
 
   @Get()
