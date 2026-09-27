@@ -12,6 +12,7 @@ import { ExamplesModule } from './examples/examples.module';
 import { LearningHistoryModule } from './learning-history/learning-history.module';
 import { FlashcardModule } from './flashcard/flashcard.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { QuizModule } from './quiz/quiz.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     LearningHistoryModule,
     FlashcardModule,
     DashboardModule,
+    QuizModule,
   ],
   controllers: [AppController],
   providers: [

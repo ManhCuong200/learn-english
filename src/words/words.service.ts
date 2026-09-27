@@ -35,19 +35,39 @@ export class WordsService {
     });
   }
 
-  async findAll() {
-    return this.prisma.word.findMany({
+  async findAll(userId?: string) {
+    const words = await this.prisma.word.findMany({
       orderBy: {
         createdAt: 'asc',
       },
       include: {
         category: true,
         examples: true,
+        ...(userId && {
+          wordProgresses: {
+            where: { userId },
+          },
+        }),
       },
+    });
+
+    if (!userId) return words;
+
+    return words.map((word) => {
+      const progress = (word as any).wordProgresses?.[0] || {
+        status: 'NEW',
+        reviewCount: 0,
+        lastReviewedAt: null,
+      };
+      const { wordProgresses, ...wordData } = word as any;
+      return {
+        ...wordData,
+        progress,
+      };
     });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, userId?: string) {
     const word = await this.prisma.word.findUnique({
       where: {
         id,
@@ -55,6 +75,11 @@ export class WordsService {
       include: {
         category: true,
         examples: true,
+        ...(userId && {
+          wordProgresses: {
+            where: { userId },
+          },
+        }),
       },
     });
 
@@ -62,7 +87,68 @@ export class WordsService {
       throw new NotFoundException('Word not found');
     }
 
-    return word;
+    if (!userId) return word;
+
+    const progress = (word as any).wordProgresses?.[0] || {
+      status: 'NEW',
+      reviewCount: 0,
+      lastReviewedAt: null,
+    };
+    const { wordProgresses, ...wordData } = word as any;
+    return {
+      ...wordData,
+      progress,
+    };
+  }
+
+  async markAsLearned(userId: string, wordId: string) {
+    const word = await this.prisma.word.findUnique({
+      where: { id: wordId },
+    });
+
+    if (!word) {
+      throw new NotFoundException('Word not found');
+    }
+
+    const now = new Date();
+
+    const progress = await this.prisma.$transaction(async (tx) => {
+      const updatedProgress = await tx.wordProgress.upsert({
+        where: {
+          userId_wordId: { userId, wordId },
+        },
+        update: {
+          status: 'REVIEW',
+          lastReviewedAt: now,
+          reviewCount: { increment: 1 },
+        },
+        create: {
+          userId,
+          wordId,
+          status: 'REVIEW',
+          lastReviewedAt: now,
+          reviewCount: 1,
+        },
+      });
+
+      await tx.learningHistory.create({
+        data: {
+          userId,
+          type: 'VOCABULARY',
+          title: `Learned vocabulary: ${word.word}`,
+          description: word.meaning,
+          referenceId: wordId,
+          createdAt: now,
+        },
+      });
+
+      return updatedProgress;
+    });
+
+    return {
+      message: 'Word marked as learned',
+      progress,
+    };
   }
 
   async update(id: string, dto: UpdateWordDto) {

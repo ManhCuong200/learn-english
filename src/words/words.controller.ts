@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { WordsService } from './words.service';
@@ -26,8 +27,9 @@ export class WordsController {
   }
 
   @Get()
-  findAll() {
-    return this.wordsService.findAll();
+  findAll(@Req() req: any) {
+    const userId = req.user?.id;
+    return this.wordsService.findAll(userId);
   }
 
   @Get('search')
@@ -36,8 +38,15 @@ export class WordsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.wordsService.findOne(id);
+  findOne(@Param('id') id: string, @Req() req: any) {
+    const userId = req.user?.id;
+    return this.wordsService.findOne(id, userId);
+  }
+
+  @Post(':id/learn')
+  @UseGuards(JwtAuthGuard)
+  markAsLearned(@Param('id') id: string, @Req() req: any) {
+    return this.wordsService.markAsLearned(req.user.id, id);
   }
 
   @Patch(':id')
