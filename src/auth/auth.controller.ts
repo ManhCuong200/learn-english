@@ -54,6 +54,18 @@ export class AuthController {
     });
   }
 
+  private clearCookies(res: Response) {
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieOptions = {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? ('none' as const) : ('lax' as const),
+      path: '/',
+    };
+    res.clearCookie('access_token', cookieOptions);
+    res.clearCookie('refresh_token', cookieOptions);
+  }
+
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
@@ -113,8 +125,7 @@ export class AuthController {
     if (token) {
       await this.authService.revokeSession(token);
     }
-    res.clearCookie('access_token');
-    res.clearCookie('refresh_token');
+    this.clearCookies(res);
     return { message: 'Logout successful' };
   }
 
