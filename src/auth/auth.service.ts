@@ -97,6 +97,13 @@ export class AuthService {
       throw new UnauthorizedException(errorMessage);
     }
 
+    if (requiredRole === UserRole.ADMIN) {
+      const adminEmailEnv = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+      if (adminEmailEnv && email !== adminEmailEnv) {
+        throw new UnauthorizedException(errorMessage);
+      }
+    }
+
     if (!user.password) {
       throw new UnauthorizedException('Please login with Google or Facebook');
     }
