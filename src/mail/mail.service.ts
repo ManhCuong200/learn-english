@@ -16,6 +16,11 @@ export class MailService {
   }
 
   async sendPasswordResetEmail(email: string, resetUrl: string): Promise<void> {
+    if (email.endsWith('.local')) {
+      console.log(`[MailService] Skipped password reset email for test account: ${email}`);
+      return;
+    }
+
     const { error } = await this.resend.emails.send({
       from: 'English Learning <onboarding@resend.dev>',
       to: [email],
@@ -69,6 +74,11 @@ export class MailService {
     ip: string,
     userAgent: string,
   ): Promise<void> {
+    if (email.endsWith('.local')) {
+      console.log(`[MailService] Skipped security alert email for test account: ${email}`);
+      return;
+    }
+
     const { error } = await this.resend.emails.send({
       from: 'English Learning <onboarding@resend.dev>',
       to: [email],
