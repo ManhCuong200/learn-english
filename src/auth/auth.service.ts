@@ -382,6 +382,7 @@ export class AuthService {
         id: true,
         name: true,
         email: true,
+        role: true,
         isTwoFactorEnabled: true,
         createdAt: true,
         updatedAt: true,
