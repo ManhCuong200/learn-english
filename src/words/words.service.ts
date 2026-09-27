@@ -18,11 +18,14 @@ export class WordsService {
       throw new NotFoundException('Category not found');
     }
 
+    const ipaVal = (dto.ipa ?? dto.pronunciation)?.trim() || null;
+
     return this.prisma.word.create({
       data: {
         word: dto.word.trim(),
         meaning: dto.meaning.trim(),
-        pronunciation: dto.pronunciation?.trim(),
+        pronunciation: ipaVal,
+        ipa: ipaVal,
         level: dto.level?.trim(),
         categoryId: dto.categoryId,
       },
@@ -85,6 +88,10 @@ export class WordsService {
       }
     }
 
+    const newIpa = (dto.ipa !== undefined || dto.pronunciation !== undefined)
+      ? ((dto.ipa ?? dto.pronunciation)?.trim() || null)
+      : undefined;
+
     return this.prisma.word.update({
       where: {
         id,
@@ -98,8 +105,9 @@ export class WordsService {
           meaning: dto.meaning.trim(),
         }),
 
-        ...(dto.pronunciation !== undefined && {
-          pronunciation: dto.pronunciation.trim(),
+        ...(newIpa !== undefined && {
+          pronunciation: newIpa,
+          ipa: newIpa,
         }),
 
         ...(dto.level !== undefined && {

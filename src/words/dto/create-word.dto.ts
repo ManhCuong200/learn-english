@@ -18,6 +18,11 @@ export class CreateWordDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
+  ipa?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(20)
   level?: string;
 
