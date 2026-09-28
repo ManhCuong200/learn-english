@@ -6,7 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "prisma generate --schema=src/prisma/schema.prisma && nest build",
+    "build": "prisma db push --schema=src/prisma/schema.prisma && prisma generate --schema=src/prisma/schema.prisma && nest build && npx ts-node scripts/seed-quiz.ts",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "ts-node src/main.ts",
