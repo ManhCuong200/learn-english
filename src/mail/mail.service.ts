@@ -17,7 +17,9 @@ export class MailService {
 
   async sendPasswordResetEmail(email: string, resetUrl: string): Promise<void> {
     if (email.endsWith('.local')) {
-      console.log(`[MailService] Skipped password reset email for test account: ${email}`);
+      console.log(
+        `[MailService] Skipped password reset email for test account: ${email}`,
+      );
       return;
     }
 
@@ -75,7 +77,9 @@ export class MailService {
     userAgent: string,
   ): Promise<void> {
     if (email.endsWith('.local')) {
-      console.log(`[MailService] Skipped security alert email for test account: ${email}`);
+      console.log(
+        `[MailService] Skipped security alert email for test account: ${email}`,
+      );
       return;
     }
 

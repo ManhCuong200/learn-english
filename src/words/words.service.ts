@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateWordDto } from './dto/create-word.dto';
 import { UpdateWordDto } from './dto/update-word.dto';
@@ -175,9 +179,10 @@ export class WordsService {
       }
     }
 
-    const newIpa = (dto.ipa !== undefined || dto.pronunciation !== undefined)
-      ? ((dto.ipa ?? dto.pronunciation)?.trim() || null)
-      : undefined;
+    const newIpa =
+      dto.ipa !== undefined || dto.pronunciation !== undefined
+        ? (dto.ipa ?? dto.pronunciation)?.trim() || null
+        : undefined;
 
     return this.prisma.word.update({
       where: {
@@ -275,16 +280,23 @@ export class WordsService {
 
     // 1. Fetch IPA & Example from Free Dictionary API
     try {
-      const dictRes = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(cleanWord)}`);
+      const dictRes = await fetch(
+        `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(cleanWord)}`,
+      );
       if (dictRes.ok) {
         const dictData: any = await dictRes.json();
         if (Array.isArray(dictData) && dictData.length > 0) {
           const entry = dictData[0];
-          ipa = entry.phonetic || entry.phonetics?.find((p: any) => p.text)?.text || null;
+          ipa =
+            entry.phonetic ||
+            entry.phonetics?.find((p: any) => p.text)?.text ||
+            null;
 
           const firstMeaning = entry.meanings?.[0];
           if (firstMeaning?.definitions?.length > 0) {
-            const defObj = firstMeaning.definitions.find((d: any) => d.example) || firstMeaning.definitions[0];
+            const defObj =
+              firstMeaning.definitions.find((d: any) => d.example) ||
+              firstMeaning.definitions[0];
             englishExample = defObj.example || '';
           }
         }
@@ -296,11 +308,17 @@ export class WordsService {
     // 2. Fetch Vietnamese meaning via MyMemory Translate API
     let meaning = cleanWord;
     try {
-      const transRes = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(cleanWord)}&langpair=en|vi`);
+      const transRes = await fetch(
+        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(cleanWord)}&langpair=en|vi`,
+      );
       if (transRes.ok) {
         const transData: any = await transRes.json();
         const translated = transData?.responseData?.translatedText;
-        if (translated && typeof translated === 'string' && !translated.includes('MYMEMORY WARNING')) {
+        if (
+          translated &&
+          typeof translated === 'string' &&
+          !translated.includes('MYMEMORY WARNING')
+        ) {
           meaning = translated.toLowerCase();
         }
       }
@@ -312,11 +330,17 @@ export class WordsService {
     let exampleMeaning = '';
     if (englishExample) {
       try {
-        const exTransRes = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(englishExample)}&langpair=en|vi`);
+        const exTransRes = await fetch(
+          `https://api.mymemory.translated.net/get?q=${encodeURIComponent(englishExample)}&langpair=en|vi`,
+        );
         if (exTransRes.ok) {
           const exTransData: any = await exTransRes.json();
           const exTranslated = exTransData?.responseData?.translatedText;
-          if (exTranslated && typeof exTranslated === 'string' && !exTranslated.includes('MYMEMORY WARNING')) {
+          if (
+            exTranslated &&
+            typeof exTranslated === 'string' &&
+            !exTranslated.includes('MYMEMORY WARNING')
+          ) {
             exampleMeaning = exTranslated;
           }
         }
@@ -325,14 +349,17 @@ export class WordsService {
       }
     }
 
-    const level = cleanWord.length <= 5 ? 'A1' : cleanWord.length <= 8 ? 'B1' : 'C1';
+    const level =
+      cleanWord.length <= 5 ? 'A1' : cleanWord.length <= 8 ? 'B1' : 'C1';
 
     return {
       word: cleanWord,
       meaning,
       ipa,
       level,
-      examples: englishExample ? [{ content: englishExample, meaning: exampleMeaning || null }] : [],
+      examples: englishExample
+        ? [{ content: englishExample, meaning: exampleMeaning || null }]
+        : [],
     };
   }
 
@@ -346,7 +373,7 @@ export class WordsService {
     }
 
     const uniqueWords = Array.from(
-      new Set(dto.words.map((w) => w.trim().toLowerCase()))
+      new Set(dto.words.map((w) => w.trim().toLowerCase())),
     ).filter(Boolean);
 
     const createdWords: any[] = [];
@@ -365,8 +392,12 @@ export class WordsService {
           const updated = await this.prisma.word.update({
             where: { id: existing.id },
             data: {
-              ...(info.ipa && !existing.ipa && { ipa: info.ipa, pronunciation: info.ipa }),
-              ...(info.meaning && existing.meaning === existing.word && { meaning: info.meaning }),
+              ...(info.ipa &&
+                !existing.ipa && { ipa: info.ipa, pronunciation: info.ipa }),
+              ...(info.meaning &&
+                existing.meaning === existing.word && {
+                  meaning: info.meaning,
+                }),
             },
             include: { category: true, examples: true },
           });
@@ -411,4 +442,3 @@ export class WordsService {
     };
   }
 }
-

@@ -151,7 +151,11 @@ export class QuizService {
   /**
    * Submit quiz attempt, grade answers, update attempt, and log learning history
    */
-  async submitQuiz(userId: string, attemptId: string, submitDto: SubmitQuizDto) {
+  async submitQuiz(
+    userId: string,
+    attemptId: string,
+    submitDto: SubmitQuizDto,
+  ) {
     return this.prisma.$transaction(async (tx) => {
       const attempt = await tx.quizAttempt.findUnique({
         where: { id: attemptId },

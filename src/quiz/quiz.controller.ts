@@ -42,10 +42,7 @@ export class QuizController {
   }
 
   @Post(':id/start')
-  startQuiz(
-    @Req() req: AuthenticatedRequest,
-    @Param('id') quizId: string,
-  ) {
+  startQuiz(@Req() req: AuthenticatedRequest, @Param('id') quizId: string) {
     return this.quizService.startQuiz(req.user.id, quizId);
   }
 

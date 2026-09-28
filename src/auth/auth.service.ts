@@ -168,7 +168,10 @@ export class AuthService {
       this.mailService
         .sendSecurityAlertEmail(user.email, reqMeta.ip, reqMeta.userAgent)
         .catch((err) =>
-          console.error('Failed to send security alert email asynchronously:', err),
+          console.error(
+            'Failed to send security alert email asynchronously:',
+            err,
+          ),
         );
     }
 

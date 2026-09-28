@@ -23,10 +23,7 @@ export class AdminGuard implements CanActivate {
     }
 
     const adminEmailEnv = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-    if (
-      adminEmailEnv &&
-      request.user?.email?.toLowerCase() !== adminEmailEnv
-    ) {
+    if (adminEmailEnv && request.user?.email?.toLowerCase() !== adminEmailEnv) {
       throw new UnauthorizedException('Admin access required');
     }
 
