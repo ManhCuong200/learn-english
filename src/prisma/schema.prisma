@@ -125,6 +125,8 @@ model LearningHistory {
   createdAt   DateTime             @default(now())
 
   @@index([userId])
+  @@index([userId, createdAt])
+  @@index([userId, type])
 }
 
 enum WordProgressStatus {
@@ -157,6 +159,8 @@ model WordProgress {
   @@index([userId])
   @@index([wordId])
   @@index([nextReviewAt])
+  @@index([userId, status])
+  @@index([userId, nextReviewAt])
 }
 
 model FlashcardReview {
@@ -171,6 +175,7 @@ model FlashcardReview {
   @@index([userId])
   @@index([wordId])
   @@index([reviewedAt])
+  @@index([userId, reviewedAt])
 }
 
 enum QuizQuestionType {
@@ -234,6 +239,7 @@ model QuizAttempt {
   @@index([userId])
   @@index([quizId])
   @@index([createdAt])
+  @@index([userId, completedAt])
 }
 
 model QuizAnswer {

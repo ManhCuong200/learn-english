@@ -13,6 +13,7 @@ import { LearningHistoryModule } from './learning-history/learning-history.modul
 import { FlashcardModule } from './flashcard/flashcard.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { QuizModule } from './quiz/quiz.module';
+import { ProgressModule } from './progress/progress.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { QuizModule } from './quiz/quiz.module';
     FlashcardModule,
     DashboardModule,
     QuizModule,
+    ProgressModule,
   ],
   controllers: [AppController],
   providers: [
