@@ -19,6 +19,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed:admin": "node --env-file=.env scripts/seed-admin.js",
+    "seed:quiz": "npx ts-node scripts/seed-quiz.ts",
     "postinstall": "prisma generate --schema=src/prisma/schema.prisma"
   },
   "prisma": {

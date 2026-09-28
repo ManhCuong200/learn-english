@@ -1,0 +1,44 @@
+@baseUrl = http://localhost:3000
+@authToken = YOUR_JWT_TOKEN_HERE
+
+### 1. Get Quizzes List
+GET {{baseUrl}}/quizzes
+Authorization: Bearer {{authToken}}
+
+### 2. Get Quizzes Filtered by Category / Level
+GET {{baseUrl}}/quizzes?level=B1
+Authorization: Bearer {{authToken}}
+
+### 3. Get Quiz Details (Questions without correctAnswer)
+GET {{baseUrl}}/quizzes/QUIZ_ID_HERE
+Authorization: Bearer {{authToken}}
+
+### 4. Start Quiz Attempt
+POST {{baseUrl}}/quizzes/QUIZ_ID_HERE/start
+Authorization: Bearer {{authToken}}
+
+### 5. Submit Quiz Attempt
+POST {{baseUrl}}/quizzes/attempts/ATTEMPT_ID_HERE/submit
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "answers": [
+    {
+      "questionId": "QUESTION_1_ID",
+      "selectedAnswer": "Hạn chót"
+    },
+    {
+      "questionId": "QUESTION_2_ID",
+      "selectedAnswer": "Meeting"
+    },
+    {
+      "questionId": "QUESTION_3_ID",
+      "selectedAnswer": "Opportunity"
+    }
+  ]
+}
+
+### 6. Get Quiz Attempt Result History
+GET {{baseUrl}}/quizzes/attempts/ATTEMPT_ID_HERE
+Authorization: Bearer {{authToken}}

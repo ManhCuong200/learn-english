@@ -29,6 +29,7 @@ model User {
   learningHistories   LearningHistory[]
   wordProgresses      WordProgress[]
   flashcardReviews    FlashcardReview[]
+  quizAttempts        QuizAttempt[]
 
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
@@ -43,7 +44,8 @@ model Category {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  words Word[]
+  words   Word[]
+  quizzes Quiz[]
 }
 
 model Word {
@@ -57,9 +59,10 @@ model Word {
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id])
 
-  examples Example[]
+  examples         Example[]
   wordProgresses   WordProgress[]
   flashcardReviews FlashcardReview[]
+  quizQuestions    QuizQuestion[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -168,4 +171,82 @@ model FlashcardReview {
   @@index([userId])
   @@index([wordId])
   @@index([reviewedAt])
+}
+
+enum QuizQuestionType {
+  MEANING
+  FILL_BLANK
+  TRANSLATION
+}
+
+model Quiz {
+  id             String   @id @default(uuid())
+  title          String
+  description    String?
+  categoryId     String?
+  level          String?
+  totalQuestions Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  category  Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  questions QuizQuestion[]
+  attempts  QuizAttempt[]
+
+  @@index([categoryId])
+  @@index([level])
+}
+
+model QuizQuestion {
+  id            String           @id @default(uuid())
+  quizId        String
+  quiz          Quiz             @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  wordId        String
+  word          Word             @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  question      String
+  type          QuizQuestionType
+  options       Json
+  correctAnswer String
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  answers QuizAnswer[]
+
+  @@index([quizId])
+  @@index([wordId])
+}
+
+model QuizAttempt {
+  id             String    @id @default(uuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizId         String
+  quiz           Quiz      @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  score          Int       @default(0)
+  totalQuestions Int
+  correctAnswers Int       @default(0)
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  answers QuizAnswer[]
+
+  @@index([userId])
+  @@index([quizId])
+  @@index([createdAt])
+}
+
+model QuizAnswer {
+  id             String       @id @default(uuid())
+  attemptId      String
+  attempt        QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId     String
+  question       QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedAnswer String
+  correctAnswer  String
+  isCorrect      Boolean
+  createdAt      DateTime     @default(now())
+
+  @@index([attemptId])
+  @@index([questionId])
 }
