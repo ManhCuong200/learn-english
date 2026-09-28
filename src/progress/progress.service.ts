@@ -33,7 +33,15 @@ export class ProgressService {
         where: { userId, status: WordProgressStatus.LEARNING },
       }),
       this.prisma.wordProgress.count({
-        where: { userId, nextReviewAt: { lte: now } },
+        where: {
+          userId,
+          status: {
+            in: [WordProgressStatus.LEARNING, WordProgressStatus.REVIEW],
+          },
+          nextReviewAt: {
+            lte: now,
+          },
+        },
       }),
       this.prisma.flashcardReview.count({
         where: { userId },
@@ -105,11 +113,7 @@ export class ProgressService {
     // Pre-populate date map for all requested days
     const now = new Date();
     for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() - i,
-      );
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
       const dateStr = this.formatDate(d);
       dateMap.set(dateStr, {
         date: dateStr,
@@ -251,7 +255,11 @@ export class ProgressService {
     }
 
     let streak = 0;
-    let checkDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const checkDate = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
 
     while (true) {
       const checkStr = this.formatDate(checkDate);
@@ -267,7 +275,8 @@ export class ProgressService {
   }
 
   /**
-   * Helper to format Date as YYYY-MM-DD in local time
+   * Helper to format Date as YYYY-MM-DD in local calendar time.
+   * Note: Date grouping uses local calendar date. Production multi-region deployments should harmonize user timezones.
    */
   private formatDate(date: Date): string {
     const year = date.getFullYear();

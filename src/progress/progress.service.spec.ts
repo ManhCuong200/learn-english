@@ -4,15 +4,19 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   FlashcardReviewResultType,
   LearningActivityType,
-  WordProgressStatus,
 } from '@prisma/client';
 
 describe('ProgressService', () => {
   let service: ProgressService;
-  let prisma: any;
+  let mockPrismaService: {
+    wordProgress: { count: jest.Mock };
+    flashcardReview: { count: jest.Mock; groupBy: jest.Mock };
+    quizAttempt: { count: jest.Mock; aggregate: jest.Mock };
+    learningHistory: { findMany: jest.Mock };
+  };
 
   beforeEach(async () => {
-    prisma = {
+    mockPrismaService = {
       wordProgress: {
         count: jest.fn(),
       },
@@ -34,7 +38,7 @@ describe('ProgressService', () => {
         ProgressService,
         {
           provide: PrismaService,
-          useValue: prisma,
+          useValue: mockPrismaService,
         },
       ],
     }).compile();
@@ -44,20 +48,20 @@ describe('ProgressService', () => {
 
   describe('getOverview', () => {
     it('should return correct counts, average score, and streak when data exists', async () => {
-      prisma.wordProgress.count
+      mockPrismaService.wordProgress.count
         .mockResolvedValueOnce(10) // REVIEW
-        .mockResolvedValueOnce(5)  // LEARNING
+        .mockResolvedValueOnce(5) // LEARNING
         .mockResolvedValueOnce(2); // Due
 
-      prisma.flashcardReview.count.mockResolvedValue(15);
-      prisma.quizAttempt.count.mockResolvedValue(4);
-      prisma.quizAttempt.aggregate.mockResolvedValue({
+      mockPrismaService.flashcardReview.count.mockResolvedValue(15);
+      mockPrismaService.quizAttempt.count.mockResolvedValue(4);
+      mockPrismaService.quizAttempt.aggregate.mockResolvedValue({
         _avg: { score: 85.2 },
       });
 
       const now = new Date();
       const yesterday = new Date(now.getTime() - 86400000);
-      prisma.learningHistory.findMany.mockResolvedValue([
+      mockPrismaService.learningHistory.findMany.mockResolvedValue([
         { createdAt: now },
         { createdAt: yesterday },
       ]);
@@ -74,13 +78,13 @@ describe('ProgressService', () => {
     });
 
     it('should handle zero activity user cleanly', async () => {
-      prisma.wordProgress.count.mockResolvedValue(0);
-      prisma.flashcardReview.count.mockResolvedValue(0);
-      prisma.quizAttempt.count.mockResolvedValue(0);
-      prisma.quizAttempt.aggregate.mockResolvedValue({
+      mockPrismaService.wordProgress.count.mockResolvedValue(0);
+      mockPrismaService.flashcardReview.count.mockResolvedValue(0);
+      mockPrismaService.quizAttempt.count.mockResolvedValue(0);
+      mockPrismaService.quizAttempt.aggregate.mockResolvedValue({
         _avg: { score: null },
       });
-      prisma.learningHistory.findMany.mockResolvedValue([]);
+      mockPrismaService.learningHistory.findMany.mockResolvedValue([]);
 
       const result = await service.getOverview('user-empty');
 
@@ -96,7 +100,7 @@ describe('ProgressService', () => {
 
   describe('getActivity', () => {
     it('should fill all requested days even if zero activity exists', async () => {
-      prisma.learningHistory.findMany.mockResolvedValue([]);
+      mockPrismaService.learningHistory.findMany.mockResolvedValue([]);
 
       const result = await service.getActivity('user-1', 7);
 
@@ -108,7 +112,7 @@ describe('ProgressService', () => {
 
     it('should map activities to dates accurately', async () => {
       const now = new Date();
-      prisma.learningHistory.findMany.mockResolvedValue([
+      mockPrismaService.learningHistory.findMany.mockResolvedValue([
         { type: LearningActivityType.VOCABULARY, createdAt: now },
         { type: LearningActivityType.FLASHCARD, createdAt: now },
         { type: LearningActivityType.QUIZ, createdAt: now },
@@ -126,7 +130,7 @@ describe('ProgressService', () => {
 
   describe('getVocabularyProgress', () => {
     it('should sum new, learning, and review words', async () => {
-      prisma.wordProgress.count
+      mockPrismaService.wordProgress.count
         .mockResolvedValueOnce(3) // NEW
         .mockResolvedValueOnce(4) // LEARNING
         .mockResolvedValueOnce(5); // REVIEW
@@ -142,8 +146,8 @@ describe('ProgressService', () => {
 
   describe('getFlashcardsProgress', () => {
     it('should return all 4 result categories (AGAIN, HARD, GOOD, EASY)', async () => {
-      prisma.flashcardReview.count.mockResolvedValue(10);
-      prisma.flashcardReview.groupBy.mockResolvedValue([
+      mockPrismaService.flashcardReview.count.mockResolvedValue(10);
+      mockPrismaService.flashcardReview.groupBy.mockResolvedValue([
         { result: FlashcardReviewResultType.GOOD, _count: { result: 7 } },
         { result: FlashcardReviewResultType.EASY, _count: { result: 3 } },
       ]);
@@ -162,7 +166,7 @@ describe('ProgressService', () => {
 
   describe('getQuizzesProgress', () => {
     it('should calculate completed attempts, rounded average, and max score', async () => {
-      prisma.quizAttempt.aggregate.mockResolvedValue({
+      mockPrismaService.quizAttempt.aggregate.mockResolvedValue({
         _count: { id: 5 },
         _avg: { score: 77.6 },
         _max: { score: 95 },
@@ -176,7 +180,7 @@ describe('ProgressService', () => {
     });
 
     it('should return zeros for user without attempts', async () => {
-      prisma.quizAttempt.aggregate.mockResolvedValue({
+      mockPrismaService.quizAttempt.aggregate.mockResolvedValue({
         _count: { id: 0 },
         _avg: { score: null },
         _max: { score: null },
