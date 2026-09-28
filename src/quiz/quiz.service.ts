@@ -7,10 +7,344 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { LearningActivityType } from '@prisma/client';
 import { SubmitQuizDto } from './dto/submit-quiz.dto';
+import { CreateQuizDto } from './dto/create-quiz.dto';
+import { UpdateQuizDto } from './dto/update-quiz.dto';
+import { AdminQuizQueryDto } from './dto/admin-quiz-query.dto';
+import { CreateQuizQuestionDto } from './dto/create-quiz-question.dto';
+import { UpdateQuizQuestionDto } from './dto/update-quiz-question.dto';
 
 @Injectable()
 export class QuizService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Admin: Create a new Quiz
+   */
+  async createQuiz(dto: CreateQuizDto) {
+    if (dto.categoryId) {
+      const category = await this.prisma.category.findUnique({
+        where: { id: dto.categoryId },
+      });
+      if (!category) {
+        throw new NotFoundException('Category not found');
+      }
+    }
+
+    return this.prisma.quiz.create({
+      data: {
+        title: dto.title.trim(),
+        description: dto.description?.trim() || null,
+        categoryId: dto.categoryId || null,
+        level: dto.level?.trim() || null,
+        totalQuestions: 0,
+      },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Admin: Get paginated list of quizzes with optional filters
+   */
+  async getAdminQuizzes(query: AdminQuizQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = (page - 1) * limit;
+
+    const where = {
+      ...(query.search
+        ? {
+            title: {
+              contains: query.search.trim(),
+              mode: 'insensitive' as const,
+            },
+          }
+        : {}),
+      ...(query.categoryId ? { categoryId: query.categoryId } : {}),
+      ...(query.level ? { level: query.level } : {}),
+    };
+
+    const [quizzes, total] = await Promise.all([
+      this.prisma.quiz.findMany({
+        where,
+        include: {
+          category: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip,
+        take: limit,
+      }),
+      this.prisma.quiz.count({ where }),
+    ]);
+
+    return {
+      data: quizzes.map((q) => ({
+        id: q.id,
+        title: q.title,
+        description: q.description,
+        level: q.level,
+        category: q.category
+          ? {
+              id: q.category.id,
+              name: q.category.name,
+            }
+          : null,
+        totalQuestions: q.totalQuestions,
+        createdAt: q.createdAt,
+        updatedAt: q.updatedAt,
+      })),
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
+  /**
+   * Admin: Update Quiz details
+   */
+  async updateQuiz(id: string, dto: UpdateQuizDto) {
+    const quiz = await this.prisma.quiz.findUnique({
+      where: { id },
+    });
+
+    if (!quiz) {
+      throw new NotFoundException('Quiz not found');
+    }
+
+    if (dto.categoryId && dto.categoryId !== quiz.categoryId) {
+      const category = await this.prisma.category.findUnique({
+        where: { id: dto.categoryId },
+      });
+      if (!category) {
+        throw new NotFoundException('Category not found');
+      }
+    }
+
+    return this.prisma.quiz.update({
+      where: { id },
+      data: {
+        ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
+        ...(dto.description !== undefined
+          ? { description: dto.description?.trim() || null }
+          : {}),
+        ...(dto.categoryId !== undefined
+          ? { categoryId: dto.categoryId || null }
+          : {}),
+        ...(dto.level !== undefined
+          ? { level: dto.level?.trim() || null }
+          : {}),
+      },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Admin: Delete Quiz (cascade deletes questions and attempts)
+   */
+  async deleteQuiz(id: string) {
+    const quiz = await this.prisma.quiz.findUnique({
+      where: { id },
+    });
+
+    if (!quiz) {
+      throw new NotFoundException('Quiz not found');
+    }
+
+    await this.prisma.quiz.delete({
+      where: { id },
+    });
+
+    return { message: 'Quiz deleted successfully' };
+  }
+
+  /**
+   * Admin: Add a question to Quiz
+   */
+  async createQuestion(quizId: string, dto: CreateQuizQuestionDto) {
+    const quiz = await this.prisma.quiz.findUnique({
+      where: { id: quizId },
+    });
+
+    if (!quiz) {
+      throw new NotFoundException('Quiz not found');
+    }
+
+    const word = await this.prisma.word.findUnique({
+      where: { id: dto.wordId },
+    });
+
+    if (!word) {
+      throw new NotFoundException('Word not found');
+    }
+
+    const options = dto.options.map((o) => o.trim());
+    if (options.length !== 4) {
+      throw new BadRequestException('Options must contain exactly 4 items');
+    }
+
+    const uniqueOptions = new Set(options.map((o) => o.toLowerCase()));
+    if (uniqueOptions.size !== 4) {
+      throw new BadRequestException('Options must contain 4 unique choices');
+    }
+
+    const trimmedCorrectAnswer = dto.correctAnswer.trim();
+    if (
+      !options.some(
+        (o) => o.toLowerCase() === trimmedCorrectAnswer.toLowerCase(),
+      )
+    ) {
+      throw new BadRequestException('Correct answer must exist in options');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const question = await tx.quizQuestion.create({
+        data: {
+          quizId,
+          wordId: dto.wordId,
+          question: dto.question.trim(),
+          type: dto.type,
+          options: options,
+          correctAnswer: trimmedCorrectAnswer,
+        },
+      });
+
+      await tx.quiz.update({
+        where: { id: quizId },
+        data: {
+          totalQuestions: { increment: 1 },
+        },
+      });
+
+      return question;
+    });
+  }
+
+  /**
+   * Admin: Update an existing Quiz Question
+   */
+  async updateQuestion(questionId: string, dto: UpdateQuizQuestionDto) {
+    const question = await this.prisma.quizQuestion.findUnique({
+      where: { id: questionId },
+    });
+
+    if (!question) {
+      throw new NotFoundException('Quiz question not found');
+    }
+
+    if (dto.wordId && dto.wordId !== question.wordId) {
+      const word = await this.prisma.word.findUnique({
+        where: { id: dto.wordId },
+      });
+      if (!word) {
+        throw new NotFoundException('Word not found');
+      }
+    }
+
+    const currentOptions = Array.isArray(question.options)
+      ? (question.options as string[]).map((o) => String(o).trim())
+      : [];
+
+    const newOptions = dto.options
+      ? dto.options.map((o) => o.trim())
+      : currentOptions;
+
+    if (dto.options !== undefined) {
+      if (newOptions.length !== 4) {
+        throw new BadRequestException('Options must contain exactly 4 items');
+      }
+
+      const uniqueOptions = new Set(newOptions.map((o) => o.toLowerCase()));
+      if (uniqueOptions.size !== 4) {
+        throw new BadRequestException('Options must contain 4 unique choices');
+      }
+    }
+
+    const newCorrectAnswer =
+      dto.correctAnswer !== undefined
+        ? dto.correctAnswer.trim()
+        : question.correctAnswer.trim();
+
+    if (
+      !newOptions.some(
+        (o) => o.toLowerCase() === newCorrectAnswer.toLowerCase(),
+      )
+    ) {
+      throw new BadRequestException('Correct answer must exist in the options');
+    }
+
+    return this.prisma.quizQuestion.update({
+      where: { id: questionId },
+      data: {
+        ...(dto.wordId !== undefined ? { wordId: dto.wordId } : {}),
+        ...(dto.question !== undefined
+          ? { question: dto.question.trim() }
+          : {}),
+        ...(dto.type !== undefined ? { type: dto.type } : {}),
+        ...(dto.options !== undefined ? { options: newOptions } : {}),
+        ...(dto.correctAnswer !== undefined
+          ? { correctAnswer: newCorrectAnswer }
+          : {}),
+      },
+    });
+  }
+
+  /**
+   * Admin: Delete a Quiz Question
+   */
+  async deleteQuestion(questionId: string) {
+    const question = await this.prisma.quizQuestion.findUnique({
+      where: { id: questionId },
+    });
+
+    if (!question) {
+      throw new NotFoundException('Quiz question not found');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.quizQuestion.delete({
+        where: { id: questionId },
+      });
+
+      const quiz = await tx.quiz.findUnique({
+        where: { id: question.quizId },
+        select: { totalQuestions: true },
+      });
+
+      if (quiz && quiz.totalQuestions > 0) {
+        await tx.quiz.update({
+          where: { id: question.quizId },
+          data: {
+            totalQuestions: { decrement: 1 },
+          },
+        });
+      }
+
+      return { message: 'Question deleted successfully' };
+    });
+  }
 
   /**
    * Get list of quizzes filtered by categoryId and/or level
