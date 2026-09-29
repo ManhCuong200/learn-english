@@ -41,7 +41,6 @@ export class DashboardService {
     // Calculate Streak
     // A streak continues if there's activity today or yesterday.
     let streakDays = 0;
-    const currentDateToCheck = new Date(today);
 
     // Group history by date string YYYY-MM-DD
     const activityDates = new Set(

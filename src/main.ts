@@ -1,13 +1,14 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // Trust proxy when behind reverse proxies like Render
-  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  app.set('trust proxy', 1);
 
   app.use(cookieParser());
 
@@ -18,8 +19,14 @@ async function bootstrap(): Promise<void> {
     .filter(Boolean);
 
   app.enableCors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
 
       if (
         allowedOrigins.length === 0 ||
@@ -28,10 +35,11 @@ async function bootstrap(): Promise<void> {
         origin.endsWith('.vercel.app') ||
         origin.includes('localhost')
       ) {
-        return callback(null, true);
+        callback(null, true);
+        return;
       }
 
-      return callback(null, true);
+      callback(null, true);
     },
     credentials: true,
   });

@@ -12,6 +12,7 @@ import {
 import { FlashcardService } from './flashcard.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ReviewFlashcardDto } from './dto/review-flashcard.dto';
+import type { RequestWithUser } from '../auth/interfaces/authenticated-request.interface';
 
 @Controller('flashcards')
 @UseGuards(JwtAuthGuard)
@@ -20,7 +21,7 @@ export class FlashcardController {
 
   @Get()
   async getFlashcards(
-    @Request() req,
+    @Request() req: RequestWithUser,
     @Query('limit') limitStr?: string,
     @Query('categoryId') categoryId?: string,
   ) {
@@ -36,13 +37,16 @@ export class FlashcardController {
   }
 
   @Get(':wordId')
-  async getFlashcard(@Request() req, @Param('wordId') wordId: string) {
+  async getFlashcard(
+    @Request() req: RequestWithUser,
+    @Param('wordId') wordId: string,
+  ) {
     return this.flashcardService.getFlashcard(req.user.id, wordId);
   }
 
   @Post(':wordId/review')
   async reviewFlashcard(
-    @Request() req,
+    @Request() req: RequestWithUser,
     @Param('wordId') wordId: string,
     @Body() dto: ReviewFlashcardDto,
   ) {

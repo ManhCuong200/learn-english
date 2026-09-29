@@ -12,6 +12,7 @@ describe('AuthService', () => {
   let signAsync: jest.Mock;
 
   beforeEach(async () => {
+    delete process.env.ADMIN_EMAIL;
     findUnique = jest.fn();
     signAsync = jest.fn().mockResolvedValue('admin-token');
 
@@ -71,7 +72,17 @@ describe('AuthService', () => {
         password,
       },
       { ip: '1.2.3.4', userAgent: 'test' },
-    )) as any;
+    )) as {
+      accessToken: string;
+      refreshToken: string;
+      user: {
+        id: string;
+        name: string;
+        email: string;
+        role: UserRole;
+        isTwoFactorEnabled: boolean;
+      };
+    };
 
     expect(result.accessToken).toEqual('admin-token');
     expect(result.refreshToken).toBeDefined();
@@ -80,6 +91,7 @@ describe('AuthService', () => {
       name: 'Regular User',
       email: 'user@example.com',
       role: UserRole.USER,
+      isTwoFactorEnabled: false,
     });
   });
 
@@ -119,7 +131,17 @@ describe('AuthService', () => {
         password,
       },
       { ip: '1.2.3.4', userAgent: 'test' },
-    )) as any;
+    )) as {
+      accessToken: string;
+      refreshToken: string;
+      user: {
+        id: string;
+        name: string;
+        email: string;
+        role: UserRole;
+        isTwoFactorEnabled: boolean;
+      };
+    };
 
     expect(result.accessToken).toEqual('admin-token');
     expect(result.refreshToken).toBeDefined();
@@ -128,6 +150,7 @@ describe('AuthService', () => {
       name: 'Administrator',
       email: 'admin@example.com',
       role: UserRole.ADMIN,
+      isTwoFactorEnabled: false,
     });
   });
 });

@@ -110,7 +110,7 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const token = req.cookies?.['refresh_token'];
+    const token = req.cookies?.['refresh_token'] as string | undefined;
     if (!token) {
       throw new UnauthorizedException('No refresh token provided');
     }
@@ -121,7 +121,7 @@ export class AuthController {
 
   @Post('logout')
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const token = req.cookies?.['refresh_token'];
+    const token = req.cookies?.['refresh_token'] as string | undefined;
     if (token) {
       await this.authService.revokeSession(token);
     }

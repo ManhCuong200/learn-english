@@ -10,6 +10,7 @@ import {
 import { LearningHistoryService } from './learning-history.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { LearningActivityType } from '@prisma/client';
+import type { RequestWithUser } from '../auth/interfaces/authenticated-request.interface';
 
 @Controller('learning-history')
 @UseGuards(JwtAuthGuard)
@@ -20,7 +21,7 @@ export class LearningHistoryController {
 
   @Get()
   getHistory(
-    @Request() req,
+    @Request() req: RequestWithUser,
     @Query('page') pageStr?: string,
     @Query('limit') limitStr?: string,
     @Query('type') type?: LearningActivityType,
@@ -38,7 +39,7 @@ export class LearningHistoryController {
 
   @Post()
   createHistory(
-    @Request() req,
+    @Request() req: RequestWithUser,
     @Body()
     body: {
       type: LearningActivityType;

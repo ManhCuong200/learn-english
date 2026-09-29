@@ -154,7 +154,16 @@ export class AuthService {
     return this.createSession(user, reqMeta);
   }
 
-  private async createSession(user: any, reqMeta: RequestMeta) {
+  private async createSession(
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      role: UserRole;
+      isTwoFactorEnabled?: boolean;
+    },
+    reqMeta: RequestMeta,
+  ) {
     const latestSession = await this.prisma.session.findFirst({
       where: { userId: user.id },
       orderBy: { createdAt: 'desc' },
@@ -204,7 +213,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         role: user.role,
-        isTwoFactorEnabled: user.isTwoFactorEnabled,
+        isTwoFactorEnabled: user.isTwoFactorEnabled ?? false,
       },
     };
   }
@@ -216,7 +225,7 @@ export class AuthService {
         : { facebookId: profile.providerId };
 
     let user = await this.prisma.user.findUnique({
-      where: searchCondition as any,
+      where: searchCondition,
     });
 
     if (!user) {

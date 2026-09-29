@@ -16,6 +16,13 @@ import { UpdateWordDto } from './dto/update-word.dto';
 import { BulkCrawlDto } from './dto/bulk-crawl.dto';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { RequestWithUser } from '../auth/interfaces/authenticated-request.interface';
+
+interface OptionalUserRequest {
+  user?: {
+    id: string;
+  };
+}
 
 @Controller('words')
 export class WordsController {
@@ -39,7 +46,7 @@ export class WordsController {
   }
 
   @Get()
-  findAll(@Req() req: any) {
+  findAll(@Req() req: OptionalUserRequest) {
     const userId = req.user?.id;
     return this.wordsService.findAll(userId);
   }
@@ -50,14 +57,14 @@ export class WordsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string, @Req() req: any) {
+  findOne(@Param('id') id: string, @Req() req: OptionalUserRequest) {
     const userId = req.user?.id;
     return this.wordsService.findOne(id, userId);
   }
 
   @Post(':id/learn')
   @UseGuards(JwtAuthGuard)
-  markAsLearned(@Param('id') id: string, @Req() req: any) {
+  markAsLearned(@Param('id') id: string, @Req() req: RequestWithUser) {
     return this.wordsService.markAsLearned(req.user.id, id);
   }
 

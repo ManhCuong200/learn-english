@@ -59,12 +59,29 @@ export class WordsService {
     if (!userId) return words;
 
     return words.map((word) => {
-      const progress = (word as any).wordProgresses?.[0] || {
-        status: 'NEW',
-        reviewCount: 0,
-        lastReviewedAt: null,
-      };
-      const { wordProgresses, ...wordData } = word as any;
+      const wordRecord = word as Record<string, unknown>;
+      const wordProgresses = wordRecord.wordProgresses as
+        | Array<{
+            status: string;
+            reviewCount: number;
+            lastReviewedAt: Date | null;
+          }>
+        | undefined;
+      const firstProgress = wordProgresses?.[0];
+      const progress = firstProgress
+        ? {
+            status: firstProgress.status,
+            reviewCount: firstProgress.reviewCount,
+            lastReviewedAt: firstProgress.lastReviewedAt,
+          }
+        : {
+            status: 'NEW',
+            reviewCount: 0,
+            lastReviewedAt: null,
+          };
+
+      const wordData = { ...wordRecord };
+      delete wordData.wordProgresses;
       return {
         ...wordData,
         progress,
@@ -94,12 +111,29 @@ export class WordsService {
 
     if (!userId) return word;
 
-    const progress = (word as any).wordProgresses?.[0] || {
-      status: 'NEW',
-      reviewCount: 0,
-      lastReviewedAt: null,
-    };
-    const { wordProgresses, ...wordData } = word as any;
+    const wordRecord = word as Record<string, unknown>;
+    const wordProgresses = wordRecord.wordProgresses as
+      | Array<{
+          status: string;
+          reviewCount: number;
+          lastReviewedAt: Date | null;
+        }>
+      | undefined;
+    const firstProgress = wordProgresses?.[0];
+    const progress = firstProgress
+      ? {
+          status: firstProgress.status,
+          reviewCount: firstProgress.reviewCount,
+          lastReviewedAt: firstProgress.lastReviewedAt,
+        }
+      : {
+          status: 'NEW',
+          reviewCount: 0,
+          lastReviewedAt: null,
+        };
+
+    const wordData = { ...wordRecord };
+    delete wordData.wordProgresses;
     return {
       ...wordData,
       progress,
@@ -284,18 +318,27 @@ export class WordsService {
         `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(cleanWord)}`,
       );
       if (dictRes.ok) {
-        const dictData: any = await dictRes.json();
+        const dictData = (await dictRes.json()) as Array<{
+          phonetic?: string;
+          phonetics?: Array<{ text?: string }>;
+          meanings?: Array<{
+            definitions?: Array<{ example?: string }>;
+          }>;
+        }>;
         if (Array.isArray(dictData) && dictData.length > 0) {
           const entry = dictData[0];
           ipa =
             entry.phonetic ||
-            entry.phonetics?.find((p: any) => p.text)?.text ||
+            entry.phonetics?.find((p) => Boolean(p.text))?.text ||
             null;
 
           const firstMeaning = entry.meanings?.[0];
-          if (firstMeaning?.definitions?.length > 0) {
+          if (
+            firstMeaning?.definitions &&
+            firstMeaning.definitions.length > 0
+          ) {
             const defObj =
-              firstMeaning.definitions.find((d: any) => d.example) ||
+              firstMeaning.definitions.find((d) => Boolean(d.example)) ||
               firstMeaning.definitions[0];
             englishExample = defObj.example || '';
           }
@@ -312,7 +355,9 @@ export class WordsService {
         `https://api.mymemory.translated.net/get?q=${encodeURIComponent(cleanWord)}&langpair=en|vi`,
       );
       if (transRes.ok) {
-        const transData: any = await transRes.json();
+        const transData = (await transRes.json()) as {
+          responseData?: { translatedText?: string };
+        };
         const translated = transData?.responseData?.translatedText;
         if (
           translated &&
@@ -334,7 +379,9 @@ export class WordsService {
           `https://api.mymemory.translated.net/get?q=${encodeURIComponent(englishExample)}&langpair=en|vi`,
         );
         if (exTransRes.ok) {
-          const exTransData: any = await exTransRes.json();
+          const exTransData = (await exTransRes.json()) as {
+            responseData?: { translatedText?: string };
+          };
           const exTranslated = exTransData?.responseData?.translatedText;
           if (
             exTranslated &&
@@ -376,7 +423,7 @@ export class WordsService {
       new Set(dto.words.map((w) => w.trim().toLowerCase())),
     ).filter(Boolean);
 
-    const createdWords: any[] = [];
+    const createdWords: unknown[] = [];
     let successCount = 0;
     let failedCount = 0;
 
