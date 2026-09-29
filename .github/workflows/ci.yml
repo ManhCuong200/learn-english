@@ -14,6 +14,11 @@ jobs:
       matrix:
         node-version: [20.x]
 
+    env:
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/elearning_backend"
+      DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/elearning_backend"
+      JWT_SECRET: "ci-testing-jwt-secret-key-123456"
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -28,14 +33,13 @@ jobs:
       run: npm ci
 
     - name: Generate Prisma Client
-      run: npx prisma generate
+      run: npx prisma generate --schema=src/prisma/schema.prisma
 
     - name: Run ESLint
       run: npm run lint
 
+    - name: Run Unit Tests
+      run: npm run test
+
     - name: Build NestJS application
       run: npm run build
-
-    # Uncomment when you have unit tests set up
-    # - name: Run Unit Tests
-    #   run: npm run test
