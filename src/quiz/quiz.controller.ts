@@ -48,6 +48,21 @@ export class QuizController {
     return this.quizService.getAdminQuizzes(query);
   }
 
+  @Patch('questions/:questionId')
+  @UseGuards(AdminGuard)
+  updateQuestion(
+    @Param('questionId') questionId: string,
+    @Body() dto: UpdateQuizQuestionDto,
+  ) {
+    return this.quizService.updateQuestion(questionId, dto);
+  }
+
+  @Delete('questions/:questionId')
+  @UseGuards(AdminGuard)
+  deleteQuestion(@Param('questionId') questionId: string) {
+    return this.quizService.deleteQuestion(questionId);
+  }
+
   @Patch(':id')
   @UseGuards(AdminGuard)
   updateQuiz(@Param('id') id: string, @Body() dto: UpdateQuizDto) {
@@ -67,21 +82,6 @@ export class QuizController {
     @Body() dto: CreateQuizQuestionDto,
   ) {
     return this.quizService.createQuestion(quizId, dto);
-  }
-
-  @Patch('questions/:questionId')
-  @UseGuards(AdminGuard)
-  updateQuestion(
-    @Param('questionId') questionId: string,
-    @Body() dto: UpdateQuizQuestionDto,
-  ) {
-    return this.quizService.updateQuestion(questionId, dto);
-  }
-
-  @Delete('questions/:questionId')
-  @UseGuards(AdminGuard)
-  deleteQuestion(@Param('questionId') questionId: string) {
-    return this.quizService.deleteQuestion(questionId);
   }
 
   // ----------------------------------------------------
