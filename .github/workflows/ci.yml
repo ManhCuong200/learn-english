@@ -33,7 +33,7 @@ jobs:
       run: npm ci
 
     - name: Generate Prisma Client
-      run: npx prisma generate --schema=src/prisma/schema.prisma
+      run: npx prisma generate --schema=src/core/prisma/schema.prisma
 
     - name: Run ESLint
       run: npm run lint
