@@ -152,8 +152,8 @@ STRICT REQUIREMENTS:
         },
       });
       responseText = response.text;
-    } catch (error: any) {
-      const detail = error?.message || String(error);
+    } catch (error: unknown) {
+      const detail = error instanceof Error ? error.message : String(error);
       this.logger.error(`Gemini API execution failed: ${detail}`, error);
       throw new InternalServerErrorException(
         `Failed to generate questions from AI service: ${detail}`,
