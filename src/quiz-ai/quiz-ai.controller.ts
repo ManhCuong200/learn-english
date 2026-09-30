@@ -1,0 +1,26 @@
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AdminGuard } from '../auth/guards/admin.guard';
+import { GenerateQuestionsDto } from './dto/generate-questions.dto';
+import { GenerateQuestionsResponse, QuizAiService } from './quiz-ai.service';
+
+@Controller('quizzes/ai')
+@UseGuards(JwtAuthGuard, AdminGuard)
+export class QuizAiController {
+  constructor(private readonly quizAiService: QuizAiService) {}
+
+  @Post('generate')
+  @HttpCode(HttpStatus.OK)
+  generateQuestions(
+    @Body() dto: GenerateQuestionsDto,
+  ): Promise<GenerateQuestionsResponse> {
+    return this.quizAiService.generateQuestions(dto);
+  }
+}

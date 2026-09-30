@@ -14,6 +14,7 @@ import { FlashcardModule } from './flashcard/flashcard.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { QuizModule } from './quiz/quiz.module';
 import { ProgressModule } from './progress/progress.module';
+import { QuizAiModule } from './quiz-ai/quiz-ai.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { ProgressModule } from './progress/progress.module';
     DashboardModule,
     QuizModule,
     ProgressModule,
+    QuizAiModule,
   ],
   controllers: [AppController],
   providers: [

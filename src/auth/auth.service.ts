@@ -46,7 +46,7 @@ export class AuthService {
     if (existingUser) {
       throw new ConflictException('Email already exists');
     }
-    const hashedPassword = await bcrypt.hash(dto.password, 12);
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
       data: {
         name: dto.name.trim(),
@@ -166,6 +166,7 @@ export class AuthService {
   ) {
     const latestSession = await this.prisma.session.findFirst({
       where: { userId: user.id },
+      select: { ipAddress: true, userAgent: true },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -491,7 +492,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired reset token');
     }
 
-    const hashedPassword = await bcrypt.hash(dto.password, 12);
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     await this.prisma.$transaction([
       this.prisma.user.update({
