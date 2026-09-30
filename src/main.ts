@@ -12,7 +12,9 @@ async function bootstrap(): Promise<void> {
 
   app.use(cookieParser());
 
-  const rawFrontendUrls = process.env.FRONTEND_URL || '';
+  const rawFrontendUrls =
+    process.env.FRONTEND_URL ||
+    'http://localhost:3000,https://english-learning-online.vercel.app';
   const allowedOrigins = rawFrontendUrls
     .split(',')
     .map((url) => url.trim())
@@ -41,6 +43,8 @@ async function bootstrap(): Promise<void> {
 
       callback(null, true);
     },
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type,Accept,Authorization',
     credentials: true,
   });
 
