@@ -31,12 +31,12 @@ export class QuizAiService {
     dto: GenerateQuestionsDto,
   ): Promise<GenerateQuestionsResponse> {
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    if (!apiKey || apiKey === 'your-gemini-api-key') {
       this.logger.error(
-        'GEMINI_API_KEY environment variable is not configured',
+        'GEMINI_API_KEY environment variable is not configured on server',
       );
       throw new InternalServerErrorException(
-        'GEMINI_API_KEY is not configured',
+        'GEMINI_API_KEY is not configured on the server. Please set a valid GEMINI_API_KEY in Render Environment Variables.',
       );
     }
 
@@ -152,10 +152,11 @@ STRICT REQUIREMENTS:
         },
       });
       responseText = response.text;
-    } catch (error) {
-      this.logger.error('Gemini API execution failed', error);
+    } catch (error: any) {
+      const detail = error?.message || String(error);
+      this.logger.error(`Gemini API execution failed: ${detail}`, error);
       throw new InternalServerErrorException(
-        'Failed to generate questions from AI service',
+        `Failed to generate questions from AI service: ${detail}`,
       );
     }
 
