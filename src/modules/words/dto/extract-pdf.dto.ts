@@ -1,9 +1,9 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class ExtractPdfDto {
   @IsString()
-  @IsNotEmpty()
-  base64: string;
+  @IsOptional()
+  base64?: string;
 
   @IsString()
   @IsOptional()

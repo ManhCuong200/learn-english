@@ -8,8 +8,11 @@ import {
   Post,
   Query,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { WordsService } from './words.service';
 import { WordsAiService } from './words-ai.service';
 import { CreateWordDto } from './dto/create-word.dto';
@@ -27,6 +30,15 @@ interface OptionalUserRequest {
   };
 }
 
+export interface UploadedMulterFile {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+}
+
 @Controller('words')
 export class WordsController {
   constructor(
@@ -36,7 +48,21 @@ export class WordsController {
 
   @Post('ai/extract-pdf')
   @UseGuards(JwtAuthGuard, AdminGuard)
-  extractPdf(@Body() dto: ExtractPdfDto) {
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 50 * 1024 * 1024 },
+    }),
+  )
+  extractPdf(
+    @UploadedFile() file: UploadedMulterFile | undefined,
+    @Body() dto: ExtractPdfDto,
+  ) {
+    if (file) {
+      return this.wordsAiService.extractFromPdf({
+        base64: file.buffer.toString('base64'),
+        fileName: file.originalname,
+      });
+    }
     return this.wordsAiService.extractFromPdf(dto);
   }
 
