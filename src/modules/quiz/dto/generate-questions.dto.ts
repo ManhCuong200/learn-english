@@ -41,4 +41,9 @@ export class GenerateQuestionsDto {
   @ArrayMaxSize(3)
   @IsEnum(QuizQuestionType, { each: true })
   types: QuizQuestionType[];
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('all', { each: true })
+  wordIds?: string[];
 }

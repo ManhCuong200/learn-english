@@ -18,7 +18,7 @@ export class QuizService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Admin: Create a new Quiz
+   * Admin: Create a new Quiz (supports optional initial questions atomically)
    */
   async createQuiz(dto: CreateQuizDto) {
     if (dto.categoryId) {
@@ -30,22 +30,96 @@ export class QuizService {
       }
     }
 
-    return this.prisma.quiz.create({
-      data: {
-        title: dto.title.trim(),
-        description: dto.description?.trim() || null,
-        categoryId: dto.categoryId || null,
-        level: dto.level?.trim() || null,
-        totalQuestions: 0,
-      },
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
+    const questionsToCreate = dto.questions || [];
+
+    // Pre-validate questions if provided
+    if (questionsToCreate.length > 0) {
+      const wordIds = Array.from(
+        new Set(questionsToCreate.map((q) => q.wordId)),
+      );
+      const existingWords = await this.prisma.word.findMany({
+        where: { id: { in: wordIds } },
+        select: { id: true },
+      });
+      const validWordIdSet = new Set(existingWords.map((w) => w.id));
+
+      for (let i = 0; i < questionsToCreate.length; i++) {
+        const q = questionsToCreate[i];
+        if (!validWordIdSet.has(q.wordId)) {
+          throw new NotFoundException(
+            `Word not found for question at index ${i}`,
+          );
+        }
+        const options = q.options.map((o) => o.trim());
+        if (options.length !== 4) {
+          throw new BadRequestException(
+            `Question ${i + 1}: Options must contain exactly 4 items`,
+          );
+        }
+        const unique = new Set(options.map((o) => o.toLowerCase()));
+        if (unique.size !== 4) {
+          throw new BadRequestException(
+            `Question ${i + 1}: Options must contain 4 unique choices`,
+          );
+        }
+        const trimmedCorrect = q.correctAnswer.trim();
+        if (
+          !options.some((o) => o.toLowerCase() === trimmedCorrect.toLowerCase())
+        ) {
+          throw new BadRequestException(
+            `Question ${i + 1}: Correct answer must exist in options`,
+          );
+        }
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const createdQuiz = await tx.quiz.create({
+        data: {
+          title: dto.title.trim(),
+          description: dto.description?.trim() || null,
+          categoryId: dto.categoryId || null,
+          level: dto.level?.trim() || null,
+          totalQuestions: questionsToCreate.length,
+        },
+      });
+
+      if (questionsToCreate.length > 0) {
+        await tx.quizQuestion.createMany({
+          data: questionsToCreate.map((q) => ({
+            quizId: createdQuiz.id,
+            wordId: q.wordId,
+            question: q.question.trim(),
+            type: q.type,
+            options: q.options.map((o) => o.trim()),
+            correctAnswer: q.correctAnswer.trim(),
+          })),
+        });
+      }
+
+      return tx.quiz.findUniqueOrThrow({
+        where: { id: createdQuiz.id },
+        include: {
+          category: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          questions: {
+            include: {
+              word: {
+                select: {
+                  id: true,
+                  word: true,
+                  meaning: true,
+                  level: true,
+                },
+              },
+            },
           },
         },
-      },
+      });
     });
   }
 

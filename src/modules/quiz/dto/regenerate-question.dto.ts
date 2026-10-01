@@ -1,23 +1,20 @@
 import {
-  IsArray,
+  IsEnum,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
-  MinLength,
-  ValidateNested,
 } from 'class-validator';
-import { Transform, Type } from 'class-transformer';
-import { CreateQuizQuestionDto } from './create-quiz-question.dto';
+import { Transform } from 'class-transformer';
+import { QuizQuestionType } from '@prisma/client';
 
-export class CreateQuizDto {
-  @IsString()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.trim() : value,
-  )
-  @MinLength(2)
-  @MaxLength(150)
-  title: string;
+export class RegenerateQuestionDto {
+  @IsUUID()
+  wordId: string;
+
+  @IsOptional()
+  @IsEnum(QuizQuestionType)
+  type?: QuizQuestionType;
 
   @IsOptional()
   @IsString()
@@ -25,11 +22,15 @@ export class CreateQuizDto {
     typeof value === 'string' ? value.trim() : value,
   )
   @MaxLength(1000)
-  description?: string;
+  previousQuestion?: string;
 
   @IsOptional()
-  @IsUUID()
-  categoryId?: string;
+  @IsString()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @MaxLength(500)
+  promptHint?: string;
 
   @IsOptional()
   @IsString()
@@ -38,10 +39,4 @@ export class CreateQuizDto {
   )
   @MaxLength(20)
   level?: string;
-
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateQuizQuestionDto)
-  questions?: CreateQuizQuestionDto[];
 }

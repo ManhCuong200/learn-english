@@ -3,11 +3,13 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { GoogleGenAI, Type } from '@google/genai';
 import { QuizQuestionType } from '@prisma/client';
 import { PrismaService } from '@core/prisma/prisma.service';
 import { GenerateQuestionsDto } from './dto/generate-questions.dto';
+import { RegenerateQuestionDto } from './dto/regenerate-question.dto';
 
 export interface GeneratedQuestion {
   wordId: string;
@@ -19,6 +21,10 @@ export interface GeneratedQuestion {
 
 export interface GenerateQuestionsResponse {
   questions: GeneratedQuestion[];
+}
+
+export interface RegenerateQuestionResponse {
+  question: GeneratedQuestion;
 }
 
 @Injectable()
@@ -42,36 +48,99 @@ export class QuizAiService {
 
     const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
-    const wordsPool = await this.prisma.word.findMany({
-      where: {
-        ...(dto.categoryId ? { categoryId: dto.categoryId } : {}),
-        ...(dto.level ? { level: dto.level } : {}),
-      },
-      take: 100,
-      select: {
-        id: true,
-        word: true,
-        meaning: true,
-        pronunciation: true,
-        ipa: true,
-        level: true,
-        categoryId: true,
-        examples: {
-          select: {
-            content: true,
-            meaning: true,
+    let wordsPool: Array<{
+      id: string;
+      word: string;
+      meaning: string;
+      pronunciation: string | null;
+      ipa: string | null;
+      level: string | null;
+      categoryId: string;
+      examples: Array<{ content: string; meaning: string | null }>;
+    }> = [];
+
+    if (dto.wordIds && dto.wordIds.length > 0) {
+      wordsPool = await this.prisma.word.findMany({
+        where: {
+          id: { in: dto.wordIds },
+        },
+        take: 100,
+        select: {
+          id: true,
+          word: true,
+          meaning: true,
+          pronunciation: true,
+          ipa: true,
+          level: true,
+          categoryId: true,
+          examples: {
+            select: {
+              content: true,
+              meaning: true,
+            },
           },
         },
-      },
-    });
+      });
+    } else {
+      wordsPool = await this.prisma.word.findMany({
+        where: {
+          ...(dto.categoryId ? { categoryId: dto.categoryId } : {}),
+          ...(dto.level ? { level: dto.level } : {}),
+        },
+        take: 100,
+        select: {
+          id: true,
+          word: true,
+          meaning: true,
+          pronunciation: true,
+          ipa: true,
+          level: true,
+          categoryId: true,
+          examples: {
+            select: {
+              content: true,
+              meaning: true,
+            },
+          },
+        },
+      });
 
-    if (wordsPool.length < dto.count) {
+      // Fallback if specific category has fewer words than requested count
+      if (wordsPool.length < dto.count) {
+        const additionalWords = await this.prisma.word.findMany({
+          where: {
+            id: { notIn: wordsPool.map((w) => w.id) },
+            ...(dto.level ? { level: dto.level } : {}),
+          },
+          take: dto.count - wordsPool.length,
+          select: {
+            id: true,
+            word: true,
+            meaning: true,
+            pronunciation: true,
+            ipa: true,
+            level: true,
+            categoryId: true,
+            examples: {
+              select: {
+                content: true,
+                meaning: true,
+              },
+            },
+          },
+        });
+        wordsPool = [...wordsPool, ...additionalWords];
+      }
+    }
+
+    if (wordsPool.length === 0) {
       throw new BadRequestException(
-        `Only ${wordsPool.length} vocabulary words are available, but ${dto.count} questions were requested`,
+        'No vocabulary words are available in the database for the selected criteria.',
       );
     }
 
-    const selectedWords = this.shuffleArray(wordsPool).slice(0, dto.count);
+    const actualCount = Math.min(dto.count, wordsPool.length);
+    const selectedWords = this.shuffleArray(wordsPool).slice(0, actualCount);
     const validWordIds = new Set(selectedWords.map((w) => w.id));
 
     const vocabularyPromptList = selectedWords
@@ -91,7 +160,7 @@ export class QuizAiService {
     const allowedTypesStr = dto.types.join(', ');
 
     const prompt = `You are an expert English learning assessment generator.
-Create exactly ${dto.count} quiz questions based ONLY on the vocabulary words provided below.
+Create exactly ${actualCount} quiz questions based ONLY on the vocabulary words provided below.
 
 VOCABULARY SOURCE:
 ${vocabularyPromptList}
@@ -190,9 +259,9 @@ STRICT REQUIREMENTS:
       );
     }
 
-    if (questionsRaw.length !== dto.count) {
+    if (questionsRaw.length !== actualCount) {
       this.logger.error(
-        `AI generated ${questionsRaw.length} questions, but requested count was ${dto.count}`,
+        `AI generated ${questionsRaw.length} questions, but requested count was ${actualCount}`,
       );
       throw new InternalServerErrorException(
         'AI generated incorrect number of questions',
@@ -298,6 +367,190 @@ STRICT REQUIREMENTS:
     }
 
     return { questions: validatedQuestions };
+  }
+
+  async regenerateQuestion(
+    dto: RegenerateQuestionDto,
+  ): Promise<RegenerateQuestionResponse> {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey || apiKey === 'your-gemini-api-key') {
+      this.logger.error(
+        'GEMINI_API_KEY environment variable is not configured on server',
+      );
+      throw new InternalServerErrorException(
+        'GEMINI_API_KEY is not configured on the server. Please set a valid GEMINI_API_KEY in Render Environment Variables.',
+      );
+    }
+
+    const word = await this.prisma.word.findUnique({
+      where: { id: dto.wordId },
+      include: {
+        examples: true,
+        category: true,
+      },
+    });
+
+    if (!word) {
+      throw new NotFoundException(`Word with ID ${dto.wordId} not found`);
+    }
+
+    const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    const targetType = dto.type || QuizQuestionType.MEANING;
+
+    const examplesStr =
+      word.examples.length > 0
+        ? `Examples:\n` +
+          word.examples
+            .map((e) => `- "${e.content}"${e.meaning ? ` (${e.meaning})` : ''}`)
+            .join('\n')
+        : 'None';
+
+    let prompt = `You are an expert English quiz question generator.
+Generate a single multiple choice quiz question for the following target vocabulary word:
+- Target Word: "${word.word}"
+- Meaning: "${word.meaning}"
+- Level: "${dto.level || word.level || 'Intermediate'}"
+- IPA: "${word.ipa || word.pronunciation || 'N/A'}"
+- Category: "${word.category?.name || 'General'}"
+${examplesStr}
+
+TARGET QUESTION TYPE: ${targetType}
+
+QUESTION SPECIFICATIONS:
+- If Type is MEANING: Ask for the exact definition/meaning of "${word.word}". Options must contain 4 meanings (1 correct, 3 plausible distractors).
+- If Type is FILL_BLANK: Write a clear, natural English sentence with "_____" where "${word.word}" fits. Options must be 4 English words (1 correct target word, 3 distractors of same part of speech).
+- If Type is TRANSLATION: Ask for an accurate contextual translation or usage of "${word.word}". Options must be 4 translations.
+- "options" MUST be an array of EXACTLY 4 distinct non-empty strings.
+- "correctAnswer" MUST be an exact string match to one of the 4 items in "options".
+- "wordId" MUST be exactly "${word.id}".
+- "type" MUST be "${targetType}".`;
+
+    if (dto.previousQuestion) {
+      prompt += `\n\nCRITICAL: Do NOT generate the same question or distractors as this previous version:\n"${dto.previousQuestion}". Create a novel, distinct question.`;
+    }
+
+    if (dto.promptHint) {
+      prompt += `\n\nCUSTOM INSTRUCTION: ${dto.promptHint}`;
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
+
+    let responseText: string | undefined;
+    try {
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              wordId: { type: Type.STRING },
+              question: { type: Type.STRING },
+              type: { type: Type.STRING },
+              options: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+              },
+              correctAnswer: { type: Type.STRING },
+            },
+            required: [
+              'wordId',
+              'question',
+              'type',
+              'options',
+              'correctAnswer',
+            ],
+          },
+        },
+      });
+      responseText = response.text;
+    } catch (error: unknown) {
+      const detail = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Gemini API execution failed during regenerate: ${detail}`,
+        error,
+      );
+      throw new InternalServerErrorException(
+        `Failed to regenerate question from AI service: ${detail}`,
+      );
+    }
+
+    if (!responseText) {
+      throw new InternalServerErrorException(
+        'AI service returned empty response',
+      );
+    }
+
+    let parsedJson: unknown;
+    try {
+      parsedJson = JSON.parse(responseText);
+    } catch (error) {
+      this.logger.error(
+        'Failed to parse Gemini AI response as JSON during regenerate',
+        error,
+      );
+      throw new InternalServerErrorException('AI response was not valid JSON');
+    }
+
+    if (!this.isRecord(parsedJson)) {
+      throw new InternalServerErrorException(
+        'AI response schema structure is invalid',
+      );
+    }
+
+    const questionText = parsedJson['question'];
+    const qType = parsedJson['type'];
+    const optionsRaw = parsedJson['options'];
+    const correctAnswer = parsedJson['correctAnswer'];
+
+    if (typeof questionText !== 'string' || !questionText.trim()) {
+      throw new InternalServerErrorException('AI returned empty question text');
+    }
+
+    if (!Array.isArray(optionsRaw) || optionsRaw.length !== 4) {
+      throw new InternalServerErrorException(
+        'AI generated invalid options count',
+      );
+    }
+
+    const cleanedOptions: string[] = [];
+    for (const opt of optionsRaw) {
+      if (typeof opt !== 'string' || !opt.trim()) {
+        throw new InternalServerErrorException(
+          'AI generated invalid option text',
+        );
+      }
+      cleanedOptions.push(opt.trim());
+    }
+
+    if (new Set(cleanedOptions).size !== 4) {
+      throw new InternalServerErrorException('AI generated duplicate options');
+    }
+
+    if (
+      typeof correctAnswer !== 'string' ||
+      !cleanedOptions.includes(correctAnswer.trim())
+    ) {
+      throw new InternalServerErrorException(
+        'AI generated correct answer not in options',
+      );
+    }
+
+    const validatedType =
+      typeof qType === 'string' && this.isValidQuizQuestionType(qType)
+        ? qType
+        : targetType;
+
+    return {
+      question: {
+        wordId: word.id,
+        question: questionText.trim(),
+        type: validatedType,
+        options: cleanedOptions,
+        correctAnswer: correctAnswer.trim(),
+      },
+    };
   }
 
   private shuffleArray<T>(array: T[]): T[] {
