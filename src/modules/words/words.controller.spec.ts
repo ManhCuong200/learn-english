@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WordsController } from './words.controller';
 import { WordsService } from './words.service';
+import { WordsAiService } from './words-ai.service';
 
 describe('WordsController', () => {
   let controller: WordsController;
@@ -11,6 +12,10 @@ describe('WordsController', () => {
       providers: [
         {
           provide: WordsService,
+          useValue: {},
+        },
+        {
+          provide: WordsAiService,
           useValue: {},
         },
       ],
