@@ -11,9 +11,12 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { WordsService } from './words.service';
+import { WordsAiService } from './words-ai.service';
 import { CreateWordDto } from './dto/create-word.dto';
 import { UpdateWordDto } from './dto/update-word.dto';
 import { BulkCrawlDto } from './dto/bulk-crawl.dto';
+import { ExtractPdfDto } from './dto/extract-pdf.dto';
+import { ImportExtractedDto } from './dto/import-extracted.dto';
 import { AdminGuard } from '@modules/auth/guards/admin.guard';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import type { RequestWithUser } from '@modules/auth/interfaces/authenticated-request.interface';
@@ -26,7 +29,22 @@ interface OptionalUserRequest {
 
 @Controller('words')
 export class WordsController {
-  constructor(private readonly wordsService: WordsService) {}
+  constructor(
+    private readonly wordsService: WordsService,
+    private readonly wordsAiService: WordsAiService,
+  ) {}
+
+  @Post('ai/extract-pdf')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  extractPdf(@Body() dto: ExtractPdfDto) {
+    return this.wordsAiService.extractFromPdf(dto);
+  }
+
+  @Post('ai/import-extracted')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  importExtracted(@Body() dto: ImportExtractedDto) {
+    return this.wordsAiService.importExtracted(dto);
+  }
 
   @Post()
   @UseGuards(JwtAuthGuard, AdminGuard)
