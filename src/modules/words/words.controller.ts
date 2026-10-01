@@ -11,6 +11,8 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { WordsService } from './words.service';
@@ -68,6 +70,13 @@ export class WordsController {
 
   @Post('ai/import-extracted')
   @UseGuards(JwtAuthGuard, AdminGuard)
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: false,
+      transform: true,
+    }),
+  )
   importExtracted(@Body() dto: ImportExtractedDto) {
     return this.wordsAiService.importExtracted(dto);
   }

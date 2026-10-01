@@ -26,11 +26,18 @@ export class ExtractedWordDto {
 
   @IsString()
   @IsOptional()
+  partOfSpeech?: string;
+
+  @IsString()
+  @IsOptional()
   example?: string;
 
   @IsString()
   @IsOptional()
   exampleMeaning?: string;
+
+  @IsOptional()
+  selected?: boolean;
 }
 
 export class ExtractedCategoryDto {
@@ -41,6 +48,9 @@ export class ExtractedCategoryDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsOptional()
+  selected?: boolean;
 
   @IsArray()
   @ValidateNested({ each: true })
