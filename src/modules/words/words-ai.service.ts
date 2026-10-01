@@ -7,10 +7,7 @@ import {
 import { GoogleGenAI, Type } from '@google/genai';
 import { PrismaService } from '@core/prisma/prisma.service';
 import { ExtractPdfDto } from './dto/extract-pdf.dto';
-import {
-  ExtractedCategoryDto,
-  ImportExtractedDto,
-} from './dto/import-extracted.dto';
+import { ImportExtractedDto } from './dto/import-extracted.dto';
 
 export interface ExtractedWordResult {
   word: string;
@@ -266,9 +263,11 @@ Respond strictly in JSON matching the defined schema.`;
           await this.prisma.word.update({
             where: { id: existingWord.id },
             data: {
-              ...(w.ipa && !existingWord.ipa && { ipa: w.ipa, pronunciation: w.ipa }),
+              ...(w.ipa &&
+                !existingWord.ipa && { ipa: w.ipa, pronunciation: w.ipa }),
               ...(w.meaning &&
-                (!existingWord.meaning || existingWord.meaning === existingWord.word) && {
+                (!existingWord.meaning ||
+                  existingWord.meaning === existingWord.word) && {
                   meaning: w.meaning.trim(),
                 }),
               ...(w.level && !existingWord.level && { level: w.level }),
@@ -277,7 +276,10 @@ Respond strictly in JSON matching the defined schema.`;
           });
 
           // Add example if word doesn't have any
-          if (w.example && (!existingWord.examples || existingWord.examples.length === 0)) {
+          if (
+            w.example &&
+            (!existingWord.examples || existingWord.examples.length === 0)
+          ) {
             await this.prisma.example.create({
               data: {
                 content: w.example.trim(),
