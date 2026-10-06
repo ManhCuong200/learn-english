@@ -22,7 +22,7 @@ import { UpdateWordDto } from './dto/update-word.dto';
 import { BulkCrawlDto } from './dto/bulk-crawl.dto';
 import { ExtractPdfDto } from './dto/extract-pdf.dto';
 import { ImportExtractedDto } from './dto/import-extracted.dto';
-import { AdminGuard } from '@modules/auth/guards/admin.guard';
+import { ModeratorGuard } from '@modules/auth/guards/moderator.guard';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import type { RequestWithUser } from '@modules/auth/interfaces/authenticated-request.interface';
 
@@ -49,7 +49,7 @@ export class WordsController {
   ) {}
 
   @Post('ai/extract-pdf')
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, ModeratorGuard)
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: 50 * 1024 * 1024 },
@@ -69,7 +69,7 @@ export class WordsController {
   }
 
   @Post('ai/import-extracted')
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, ModeratorGuard)
   @UsePipes(
     new ValidationPipe({
       whitelist: true,
@@ -82,13 +82,13 @@ export class WordsController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, ModeratorGuard)
   create(@Body() dto: CreateWordDto) {
     return this.wordsService.create(dto);
   }
 
   @Post('bulk-crawl')
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, ModeratorGuard)
   bulkCrawl(@Body() dto: BulkCrawlDto) {
     return this.wordsService.bulkCrawl(dto);
   }
@@ -122,13 +122,13 @@ export class WordsController {
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, ModeratorGuard)
   update(@Param('id') id: string, @Body() dto: UpdateWordDto) {
     return this.wordsService.update(id, dto);
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, ModeratorGuard)
   remove(@Param('id') id: string) {
     return this.wordsService.remove(id);
   }

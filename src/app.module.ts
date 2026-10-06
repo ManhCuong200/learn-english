@@ -13,6 +13,7 @@ import { FlashcardModule } from '@modules/flashcard/flashcard.module';
 import { DashboardModule } from '@modules/dashboard/dashboard.module';
 import { QuizModule } from '@modules/quiz/quiz.module';
 import { ProgressModule } from '@modules/progress/progress.module';
+import { ToeicModule } from '@modules/toeic/toeic.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ProgressModule } from '@modules/progress/progress.module';
     DashboardModule,
     QuizModule,
     ProgressModule,
+    ToeicModule,
   ],
   controllers: [AppController],
   providers: [

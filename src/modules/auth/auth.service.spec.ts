@@ -12,9 +12,9 @@ describe('AuthService', () => {
   let signAsync: jest.Mock;
 
   beforeEach(async () => {
-    delete process.env.ADMIN_EMAIL;
+    delete process.env.MODERATOR_EMAIL;
     findUnique = jest.fn();
-    signAsync = jest.fn().mockResolvedValue('admin-token');
+    signAsync = jest.fn().mockResolvedValue('moderator-token');
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -84,7 +84,7 @@ describe('AuthService', () => {
       };
     };
 
-    expect(result.accessToken).toEqual('admin-token');
+    expect(result.accessToken).toEqual('moderator-token');
     expect(result.refreshToken).toBeDefined();
     expect(result.user).toEqual({
       id: 'user-id',
@@ -95,7 +95,7 @@ describe('AuthService', () => {
     });
   });
 
-  it('rejects a non-admin from admin login', async () => {
+  it('rejects a non-moderator from moderator login', async () => {
     findUnique.mockResolvedValue({
       id: 'user-id',
       email: 'user@example.com',
@@ -104,30 +104,30 @@ describe('AuthService', () => {
     });
 
     await expect(
-      service.adminLogin(
+      service.moderatorLogin(
         {
           email: 'user@example.com',
           password: 'password',
         },
         { ip: '1.2.3.4', userAgent: 'test' },
       ),
-    ).rejects.toThrow('Invalid admin credentials');
+    ).rejects.toThrow('Invalid moderator credentials');
     expect(signAsync).not.toHaveBeenCalled();
   });
 
-  it('returns a token for an admin', async () => {
-    const password = 'AdminPassword123';
+  it('returns a token for an moderator', async () => {
+    const password = 'ModeratorPassword123';
     findUnique.mockResolvedValue({
-      id: 'admin-id',
-      name: 'Administrator',
-      email: 'admin@example.com',
-      role: UserRole.ADMIN,
+      id: 'moderator-id',
+      name: 'Moderatoristrator',
+      email: 'moderator@example.com',
+      role: UserRole.MODERATOR,
       password: await bcrypt.hash(password, 4),
     });
 
-    const result = (await service.adminLogin(
+    const result = (await service.moderatorLogin(
       {
-        email: 'admin@example.com',
+        email: 'moderator@example.com',
         password,
       },
       { ip: '1.2.3.4', userAgent: 'test' },
@@ -143,13 +143,13 @@ describe('AuthService', () => {
       };
     };
 
-    expect(result.accessToken).toEqual('admin-token');
+    expect(result.accessToken).toEqual('moderator-token');
     expect(result.refreshToken).toBeDefined();
     expect(result.user).toEqual({
-      id: 'admin-id',
-      name: 'Administrator',
-      email: 'admin@example.com',
-      role: UserRole.ADMIN,
+      id: 'moderator-id',
+      name: 'Moderatoristrator',
+      email: 'moderator@example.com',
+      role: UserRole.MODERATOR,
       isTwoFactorEnabled: false,
     });
   });

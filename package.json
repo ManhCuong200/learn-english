@@ -20,6 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed:admin": "node --env-file=.env scripts/seed-admin.js",
     "seed:quiz": "npx ts-node scripts/seed-quiz.ts",
+    "seed:toeic": "npx ts-node scripts/seed-toeic.ts",
+    "generate:toeic": "npx ts-node scripts/generate-toeic-ai.ts",
     "postinstall": "prisma generate --schema=src/core/prisma/schema.prisma"
   },
   "prisma": {

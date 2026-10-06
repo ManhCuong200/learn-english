@@ -1,7 +1,7 @@
 import { IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
-export class AdminQuizQueryDto {
+export class ModeratorQuizQueryDto {
   @IsOptional()
   @IsString()
   search?: string;

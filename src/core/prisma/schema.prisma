@@ -10,7 +10,7 @@ datasource db {
 
 enum UserRole {
   USER
-  ADMIN
+  MODERATOR
 }
 
 model User {
@@ -30,6 +30,7 @@ model User {
   wordProgresses      WordProgress[]
   flashcardReviews    FlashcardReview[]
   quizAttempts        QuizAttempt[]
+  toeicAttempts       ToeicExamAttempt[]
 
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
@@ -110,6 +111,7 @@ enum LearningActivityType {
   VOCABULARY
   FLASHCARD
   QUIZ
+  TOEIC_EXAM
 }
 
 model LearningHistory {
@@ -256,3 +258,149 @@ model QuizAnswer {
   @@index([attemptId])
   @@index([questionId])
 }
+
+enum ToeicPart {
+  PART_1
+  PART_2
+  PART_3
+  PART_4
+  PART_5
+  PART_6
+  PART_7
+}
+
+enum ExamType {
+  FULL_TEST
+  MINI_TEST
+  PRACTICE_PART
+}
+
+model ToeicExam {
+  id             String            @id @default(uuid())
+  title          String
+  slug           String            @unique
+  description    String?
+  series         String            @default("ETS") // ETS, Hacker, Economy...
+  year           Int               // 2024, 2023, 2022...
+  testNumber     Int               @default(1)     // Test 1, 2, 3...
+  type           ExamType          @default(FULL_TEST)
+  duration       Int               @default(120)   // Duration in minutes (120 for full test)
+  totalQuestions Int               @default(200)
+  audioFullUrl   String?           // Full audio for Listening test (Part 1-4)
+  isPublished    Boolean           @default(true)
+  difficulty     String?           @default("INTERMEDIATE")
+
+  passages       ToeicPassage[]
+  questions      ToeicQuestion[]
+  attempts       ToeicExamAttempt[]
+
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([year])
+  @@index([series])
+  @@index([type])
+  @@index([isPublished])
+}
+
+model ToeicPassage {
+  id            String          @id @default(uuid())
+  examId        String
+  exam          ToeicExam       @relation(fields: [examId], references: [id], onDelete: Cascade)
+  part          ToeicPart
+  passageNumber Int?            // Order in the exam
+  title         String?         // e.g. "Questions 131-134 refer to the following notice."
+  content       String?         @db.Text // Reading passage content (Part 6, 7)
+  audioUrl      String?         // Audio for conversation/talk (Part 3, 4)
+  imageUrl      String?         // Graphic, chart, table, image attached to passage
+  transcript    String?         @db.Text // Audio transcript for reviewing after submission
+  translation   String?         @db.Text // Vietnamese translation for study mode
+
+  questions     ToeicQuestion[]
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([examId])
+  @@index([part])
+}
+
+model ToeicQuestion {
+  id             String            @id @default(uuid())
+  examId         String
+  exam           ToeicExam         @relation(fields: [examId], references: [id], onDelete: Cascade)
+  passageId      String?
+  passage        ToeicPassage?     @relation(fields: [passageId], references: [id], onDelete: SetNull)
+  part           ToeicPart
+  questionNumber Int               // 1 to 200
+  questionText   String?           @db.Text // Can be empty or description for Part 1/2
+  imageUrl       String?           // Photo for Part 1 or question-specific diagram
+  audioUrl       String?           // Individual question audio if available
+  options        Json              // { "A": "...", "B": "...", "C": "...", "D": "..." }
+  correctAnswer  String            // "A", "B", "C", or "D"
+  explanation    String?           @db.Text // Detailed Vietnamese explanation
+  transcript     String?           @db.Text // Audio transcript for Part 1 & Part 2 options/question
+
+  userAnswers    ToeicUserAnswer[]
+
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([examId])
+  @@index([part])
+  @@index([passageId])
+  @@index([questionNumber])
+}
+
+model ToeicExamAttempt {
+  id               String            @id @default(uuid())
+  userId           String
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examId           String
+  exam             ToeicExam         @relation(fields: [examId], references: [id], onDelete: Cascade)
+  totalQuestions   Int
+  correctAnswers   Int               @default(0)
+  listeningCorrect Int               @default(0) // 0-100 correct listening answers
+  readingCorrect   Int               @default(0) // 0-100 correct reading answers
+  scoreListening   Int               @default(0) // Scaled 5 - 495
+  scoreReading     Int               @default(0) // Scaled 5 - 495
+  totalScore       Int               @default(0) // Scaled 10 - 990
+  timeSpent        Int               @default(0) // Duration in seconds
+  targetPart       ToeicPart?        // Null if Full Test, or specific part if PRACTICE_PART
+  startedAt        DateTime          @default(now())
+  completedAt      DateTime?
+
+  answers          ToeicUserAnswer[]
+
+  createdAt        DateTime          @default(now())
+
+  @@index([userId])
+  @@index([examId])
+  @@index([userId, completedAt])
+}
+
+model ToeicUserAnswer {
+  id             String           @id @default(uuid())
+  attemptId      String
+  attempt        ToeicExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId     String
+  question       ToeicQuestion    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedAnswer String?          // "A", "B", "C", "D" or null if skipped
+  correctAnswer  String
+  isCorrect      Boolean
+
+  createdAt      DateTime         @default(now())
+
+  @@index([attemptId])
+  @@index([questionId])
+  @@index([isCorrect])
+}
+
+model ToeicScoreConversion {
+  id             String   @id @default(uuid())
+  correctCount   Int      @unique // 0 to 100
+  listeningScore Int      // Scaled score 5-495
+  readingScore   Int      // Scaled score 5-495
+
+  createdAt      DateTime @default(now())
+}

@@ -23,7 +23,7 @@ interface AuthenticatedRequest extends Request {
     id: string;
     name: string;
     email: string;
-    role: 'USER' | 'ADMIN';
+    role: 'USER' | 'MODERATOR';
   };
 }
 
@@ -38,32 +38,25 @@ export class AuthController {
     };
   }
 
-  private setCookies(res: Response, accessToken: string, refreshToken: string) {
+  private setCookies(res: Response, refreshToken: string) {
     const isProd = process.env.NODE_ENV === 'production';
-    res.cookie('access_token', accessToken, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
-      maxAge: 15 * 60 * 1000, // 15 mins
-    });
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
       secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
+      sameSite: isProd ? 'strict' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/auth/refresh',
     });
   }
 
   private clearCookies(res: Response) {
     const isProd = process.env.NODE_ENV === 'production';
-    const cookieOptions = {
+    res.clearCookie('refresh_token', {
       httpOnly: true,
       secure: isProd,
-      sameSite: isProd ? ('none' as const) : ('lax' as const),
-      path: '/',
-    };
-    res.clearCookie('access_token', cookieOptions);
-    res.clearCookie('refresh_token', cookieOptions);
+      sameSite: isProd ? ('strict' as const) : ('lax' as const),
+      path: '/auth/refresh',
+    });
   }
 
   @Post('register')
@@ -84,25 +77,31 @@ export class AuthController {
       return { isTwoFactorRequired: true };
     }
 
-    this.setCookies(res, result.accessToken, result.refreshToken);
-    return { user: result.user };
+    this.setCookies(res, result.refreshToken);
+    return {
+      accessToken: result.accessToken,
+      user: result.user,
+    };
   }
 
-  @Post('admin/login')
-  async adminLogin(
+  @Post('moderator/login')
+  async moderatorLogin(
     @Req() req: Request,
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
     const reqMeta = this.getRequestMeta(req);
-    const result = await this.authService.adminLogin(dto, reqMeta);
+    const result = await this.authService.moderatorLogin(dto, reqMeta);
 
     if ('isTwoFactorRequired' in result) {
       return { isTwoFactorRequired: true };
     }
 
-    this.setCookies(res, result.accessToken, result.refreshToken);
-    return { user: result.user };
+    this.setCookies(res, result.refreshToken);
+    return {
+      accessToken: result.accessToken,
+      user: result.user,
+    };
   }
 
   @Post('refresh')
@@ -115,8 +114,11 @@ export class AuthController {
       throw new UnauthorizedException('No refresh token provided');
     }
     const result = await this.authService.refreshToken(token);
-    this.setCookies(res, result.accessToken, result.refreshToken);
-    return { message: 'Tokens refreshed' };
+    this.setCookies(res, result.refreshToken);
+    return {
+      message: 'Tokens refreshed',
+      accessToken: result.accessToken,
+    };
   }
 
   @Post('logout')
@@ -148,9 +150,9 @@ export class AuthController {
       return { isTwoFactorRequired: true };
     }
 
-    this.setCookies(res, result.accessToken, result.refreshToken);
+    this.setCookies(res, result.refreshToken);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    res.redirect(frontendUrl);
+    res.redirect(`${frontendUrl}#access_token=${result.accessToken}`);
   }
 
   @Get('facebook')
@@ -170,9 +172,9 @@ export class AuthController {
       return { isTwoFactorRequired: true };
     }
 
-    this.setCookies(res, result.accessToken, result.refreshToken);
+    this.setCookies(res, result.refreshToken);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    res.redirect(frontendUrl);
+    res.redirect(`${frontendUrl}#access_token=${result.accessToken}`);
   }
 
   @Get('sessions')

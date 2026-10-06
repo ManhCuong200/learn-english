@@ -72,12 +72,12 @@ export class AuthService {
     return this.authenticate(dto, reqMeta, 'Invalid email or password');
   }
 
-  async adminLogin(dto: LoginDto, reqMeta: RequestMeta) {
+  async moderatorLogin(dto: LoginDto, reqMeta: RequestMeta) {
     return this.authenticate(
       dto,
       reqMeta,
-      'Invalid admin credentials',
-      UserRole.ADMIN,
+      'Invalid moderator credentials',
+      UserRole.MODERATOR,
     );
   }
 
@@ -88,33 +88,42 @@ export class AuthService {
     requiredRole?: UserRole,
   ) {
     const email = dto.email.trim().toLowerCase();
+    console.log(`[AUTH DEBUG] Attempting login for email: ${email}`);
 
     const user = await this.prisma.user.findUnique({
       where: { email },
     });
+    
+    console.log(`[AUTH DEBUG] User found: ${!!user}, Role: ${user?.role}, Required: ${requiredRole}`);
 
     if (!user || (requiredRole && user.role !== requiredRole)) {
+      console.log(`[AUTH DEBUG] Failed at user/role check`);
       throw new UnauthorizedException(errorMessage);
     }
 
-    if (requiredRole === UserRole.ADMIN) {
-      const adminEmailEnv = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-      if (adminEmailEnv && email !== adminEmailEnv) {
+    if (requiredRole === UserRole.MODERATOR) {
+      const moderatorEmailEnv = process.env.MODERATOR_EMAIL?.trim().toLowerCase();
+      console.log(`[AUTH DEBUG] Env moderator email: ${moderatorEmailEnv}`);
+      if (moderatorEmailEnv && email !== moderatorEmailEnv) {
+        console.log(`[AUTH DEBUG] Failed at moderator env email check`);
         throw new UnauthorizedException(errorMessage);
       }
     }
 
     if (!user.password) {
+      console.log(`[AUTH DEBUG] Failed at password missing check`);
       throw new UnauthorizedException('Please login with Google or Facebook');
     }
 
     if (user.lockedUntil && user.lockedUntil > new Date()) {
+      console.log(`[AUTH DEBUG] Failed at locked check`);
       throw new UnauthorizedException(
         'Account locked due to too many failed attempts. Try again later.',
       );
     }
 
     const passwordMatched = await bcrypt.compare(dto.password, user.password);
+    console.log(`[AUTH DEBUG] Password matched: ${passwordMatched}`);
 
     if (!passwordMatched) {
       const failedAttempts = user.failedLoginAttempts + 1;
@@ -126,6 +135,7 @@ export class AuthService {
         where: { id: user.id },
         data: { failedLoginAttempts: failedAttempts, lockedUntil },
       });
+      console.log(`[AUTH DEBUG] Failed at password match check`);
       throw new UnauthorizedException(errorMessage);
     }
 
@@ -185,13 +195,12 @@ export class AuthService {
         );
     }
 
-    const accessToken = await this.jwtService.signAsync({
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    });
+    const { accessToken, refreshToken } = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+    );
 
-    const refreshToken = randomBytes(40).toString('hex');
     const refreshTokenHash = createHash('sha256')
       .update(refreshToken)
       .digest('hex');
@@ -262,8 +271,39 @@ export class AuthService {
     return this.createSession(user, reqMeta);
   }
 
+  async generateTokens(userId: string, email: string, role: string) {
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(
+        { sub: userId, email, role },
+        {
+          secret: process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET,
+          expiresIn: '15m',
+        },
+      ),
+      this.jwtService.signAsync(
+        { sub: userId, jti: randomBytes(16).toString('hex') },
+        {
+          secret: process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
+          expiresIn: '7d',
+        },
+      ),
+    ]);
+    return { accessToken, refreshToken };
+  }
+
   async refreshToken(token: string) {
     if (!token) throw new UnauthorizedException('No refresh token provided');
+
+    try {
+      await this.jwtService.verifyAsync(token, {
+        secret: process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
+      });
+    } catch {
+      throw new UnauthorizedException(
+        'Invalid or expired refresh token signature',
+      );
+    }
+
     const tokenHash = createHash('sha256').update(token).digest('hex');
 
     const session = await this.prisma.session.findUnique({
@@ -278,7 +318,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
-    const newRefreshToken = randomBytes(40).toString('hex');
+    const { accessToken, refreshToken: newRefreshToken } =
+      await this.generateTokens(
+        session.user.id,
+        session.user.email,
+        session.user.role,
+      );
     const newRefreshTokenHash = createHash('sha256')
       .update(newRefreshToken)
       .digest('hex');
@@ -289,12 +334,6 @@ export class AuthService {
         refreshTokenHash: newRefreshTokenHash,
         lastActive: new Date(),
       },
-    });
-
-    const accessToken = await this.jwtService.signAsync({
-      sub: session.user.id,
-      email: session.user.email,
-      role: session.user.role,
     });
 
     return {

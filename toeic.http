@@ -1,0 +1,94 @@
+### Variables
+@baseUrl = http://localhost:3001
+@authToken = your-jwt-token-here
+@examId = 1f9521c7-c52c-4edc-9b3e-e5341188f481
+@examSlug = ets-toeic-2024-test-1
+@attemptId = your-attempt-id-here
+
+
+### 1. Get List of TOEIC Exams (with filter by year, series, pagination)
+GET {{baseUrl}}/toeic/exams?year=2024&series=ETS
+Authorization: Bearer {{authToken}}
+
+
+### 2. Get Exam Summary & Part Question Counts
+GET {{baseUrl}}/toeic/exams/{{examSlug}}
+Authorization: Bearer {{authToken}}
+
+### 3. Get Questions for Full Exam (sanitized without answers for test mode)
+GET {{baseUrl}}/toeic/exams/{{examSlug}}/questions
+Authorization: Bearer {{authToken}}
+
+### 4. Practice Specific Part (e.g. Part 5 only)
+GET {{baseUrl}}/toeic/exams/{{examSlug}}/questions?targetPart=PART_5
+Authorization: Bearer {{authToken}}
+
+### 5. Start Exam Attempt
+# @name startAttempt
+POST {{baseUrl}}/toeic/exams/{{examId}}/start
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "targetPart": null
+}
+
+### 6. Submit Exam Attempt & Get Scaled Score
+POST {{baseUrl}}/toeic/attempts/{{attemptId}}/submit
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "timeSpent": 3600,
+  "answers": [
+    {
+      "questionId": "your-question-id",
+      "selectedAnswer": "A"
+    }
+  ]
+}
+
+### 7. Get Attempt Review & Full Explanations
+GET {{baseUrl}}/toeic/attempts/{{attemptId}}
+Authorization: Bearer {{authToken}}
+
+### 8. Get User Exam History
+GET {{baseUrl}}/toeic/user/history
+Authorization: Bearer {{authToken}}
+
+### 9. AI: Generate Full or Custom TOEIC Exam
+POST {{baseUrl}}/toeic/ai/generate-exam
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "title": "ETS TOEIC 2024 AI Simulation",
+  "year": 2024,
+  "difficulty": "INTERMEDIATE",
+  "topic": "Corporate Business, Office Management, Logistics",
+  "parts": ["PART_5", "PART_7"],
+  "saveToDatabase": true
+}
+
+### 10. AI: Generate Questions for Specific Part (e.g. Part 5)
+POST {{baseUrl}}/toeic/ai/generate-part
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "part": "PART_5",
+  "count": 5,
+  "difficulty": "INTERMEDIATE",
+  "topic": "Business Contracts & Negotiations"
+}
+
+### 11. AI: Generate Questions and Append to Existing Exam
+POST {{baseUrl}}/toeic/ai/exams/{{examId}}/generate-part
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "part": "PART_5",
+  "count": 5,
+  "topic": "Human Resources & Recruitment"
+}

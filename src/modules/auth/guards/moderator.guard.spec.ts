@@ -1,8 +1,8 @@
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
-import { AdminGuard } from './admin.guard';
+import { ModeratorGuard } from './moderator.guard';
 
-describe('AdminGuard', () => {
-  const guard = new AdminGuard();
+describe('ModeratorGuard', () => {
+  const guard = new ModeratorGuard();
 
   function contextWithUser(user: unknown): ExecutionContext {
     return {
@@ -12,8 +12,8 @@ describe('AdminGuard', () => {
     } as ExecutionContext;
   }
 
-  it('allows admins', () => {
-    expect(guard.canActivate(contextWithUser({ role: 'ADMIN' }))).toBe(true);
+  it('allows moderators', () => {
+    expect(guard.canActivate(contextWithUser({ role: 'MODERATOR' }))).toBe(true);
   });
 
   it('rejects regular users', () => {

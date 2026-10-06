@@ -9,7 +9,7 @@ import { LearningActivityType } from '@prisma/client';
 import { SubmitQuizDto } from './dto/submit-quiz.dto';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import { UpdateQuizDto } from './dto/update-quiz.dto';
-import { AdminQuizQueryDto } from './dto/admin-quiz-query.dto';
+import { ModeratorQuizQueryDto } from './dto/moderator-quiz-query.dto';
 import { CreateQuizQuestionDto } from './dto/create-quiz-question.dto';
 import { UpdateQuizQuestionDto } from './dto/update-quiz-question.dto';
 
@@ -18,7 +18,7 @@ export class QuizService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Admin: Create a new Quiz (supports optional initial questions atomically)
+   * Moderator: Create a new Quiz (supports optional initial questions atomically)
    */
   async createQuiz(dto: CreateQuizDto) {
     if (dto.categoryId) {
@@ -124,9 +124,9 @@ export class QuizService {
   }
 
   /**
-   * Admin: Get paginated list of quizzes with optional filters
+   * Moderator: Get paginated list of quizzes with optional filters
    */
-  async getAdminQuizzes(query: AdminQuizQueryDto) {
+  async getModeratorQuizzes(query: ModeratorQuizQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const skip = (page - 1) * limit;
@@ -190,7 +190,7 @@ export class QuizService {
   }
 
   /**
-   * Admin: Update Quiz details
+   * Moderator: Update Quiz details
    */
   async updateQuiz(id: string, dto: UpdateQuizDto) {
     const quiz = await this.prisma.quiz.findUnique({
@@ -236,7 +236,7 @@ export class QuizService {
   }
 
   /**
-   * Admin: Delete Quiz (cascade deletes questions and attempts)
+   * Moderator: Delete Quiz (cascade deletes questions and attempts)
    */
   async deleteQuiz(id: string) {
     const quiz = await this.prisma.quiz.findUnique({
@@ -255,7 +255,7 @@ export class QuizService {
   }
 
   /**
-   * Admin: Add a question to Quiz
+   * Moderator: Add a question to Quiz
    */
   async createQuestion(quizId: string, dto: CreateQuizQuestionDto) {
     const quiz = await this.prisma.quiz.findUnique({
@@ -317,7 +317,7 @@ export class QuizService {
   }
 
   /**
-   * Admin: Update an existing Quiz Question
+   * Moderator: Update an existing Quiz Question
    */
   async updateQuestion(questionId: string, dto: UpdateQuizQuestionDto) {
     const question = await this.prisma.quizQuestion.findUnique({
@@ -386,7 +386,7 @@ export class QuizService {
   }
 
   /**
-   * Admin: Delete a Quiz Question
+   * Moderator: Delete a Quiz Question
    */
   async deleteQuestion(questionId: string) {
     const question = await this.prisma.quizQuestion.findUnique({

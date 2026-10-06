@@ -12,11 +12,11 @@ import {
 } from '@nestjs/common';
 import { QuizService } from './quiz.service';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
-import { AdminGuard } from '@modules/auth/guards/admin.guard';
+import { ModeratorGuard } from '@modules/auth/guards/moderator.guard';
 import { SubmitQuizDto } from './dto/submit-quiz.dto';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import { UpdateQuizDto } from './dto/update-quiz.dto';
-import { AdminQuizQueryDto } from './dto/admin-quiz-query.dto';
+import { ModeratorQuizQueryDto } from './dto/moderator-quiz-query.dto';
 import { CreateQuizQuestionDto } from './dto/create-quiz-question.dto';
 import { UpdateQuizQuestionDto } from './dto/update-quiz-question.dto';
 
@@ -33,23 +33,23 @@ export class QuizController {
   constructor(private readonly quizService: QuizService) {}
 
   // ----------------------------------------------------
-  // ADMIN ENDPOINTS
+  // MODERATOR ENDPOINTS
   // ----------------------------------------------------
 
   @Post()
-  @UseGuards(AdminGuard)
+  @UseGuards(ModeratorGuard)
   createQuiz(@Body() dto: CreateQuizDto) {
     return this.quizService.createQuiz(dto);
   }
 
-  @Get('admin')
-  @UseGuards(AdminGuard)
-  getAdminQuizzes(@Query() query: AdminQuizQueryDto) {
-    return this.quizService.getAdminQuizzes(query);
+  @Get('moderator')
+  @UseGuards(ModeratorGuard)
+  getModeratorQuizzes(@Query() query: ModeratorQuizQueryDto) {
+    return this.quizService.getModeratorQuizzes(query);
   }
 
   @Patch('questions/:questionId')
-  @UseGuards(AdminGuard)
+  @UseGuards(ModeratorGuard)
   updateQuestion(
     @Param('questionId') questionId: string,
     @Body() dto: UpdateQuizQuestionDto,
@@ -58,25 +58,25 @@ export class QuizController {
   }
 
   @Delete('questions/:questionId')
-  @UseGuards(AdminGuard)
+  @UseGuards(ModeratorGuard)
   deleteQuestion(@Param('questionId') questionId: string) {
     return this.quizService.deleteQuestion(questionId);
   }
 
   @Patch(':id')
-  @UseGuards(AdminGuard)
+  @UseGuards(ModeratorGuard)
   updateQuiz(@Param('id') id: string, @Body() dto: UpdateQuizDto) {
     return this.quizService.updateQuiz(id, dto);
   }
 
   @Delete(':id')
-  @UseGuards(AdminGuard)
+  @UseGuards(ModeratorGuard)
   deleteQuiz(@Param('id') id: string) {
     return this.quizService.deleteQuiz(id);
   }
 
   @Post(':quizId/questions')
-  @UseGuards(AdminGuard)
+  @UseGuards(ModeratorGuard)
   createQuestion(
     @Param('quizId') quizId: string,
     @Body() dto: CreateQuizQuestionDto,

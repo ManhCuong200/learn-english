@@ -4,12 +4,12 @@ const { PrismaClient, UserRole } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function main() {
-  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-  const password = process.env.ADMIN_PASSWORD;
-  const name = process.env.ADMIN_NAME?.trim() || 'Administrator';
+  const email = process.env.MODERATOR_EMAIL?.trim().toLowerCase();
+  const password = process.env.MODERATOR_PASSWORD;
+  const name = process.env.MODERATOR_NAME?.trim() || 'Moderator';
 
   if (!email || !password) {
-    throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD must be configured');
+    throw new Error('MODERATOR_EMAIL and MODERATOR_PASSWORD must be configured');
   }
 
   const hashedPassword = await bcrypt.hash(password, 12);
@@ -19,13 +19,13 @@ async function main() {
     update: {
       name,
       password: hashedPassword,
-      role: UserRole.ADMIN,
+      role: UserRole.MODERATOR,
     },
     create: {
       name,
       email,
       password: hashedPassword,
-      role: UserRole.ADMIN,
+      role: UserRole.MODERATOR,
     },
     select: {
       id: true,
@@ -35,7 +35,7 @@ async function main() {
     },
   });
 
-  console.log(`Admin account ready: ${admin.email}`);
+  console.log(`Moderator account ready: ${admin.email}`);
 }
 
 main()

@@ -14,7 +14,7 @@ describe('AuthController', () => {
           useValue: {
             register: jest.fn(),
             login: jest.fn(),
-            adminLogin: jest.fn(),
+            moderatorLogin: jest.fn(),
           },
         },
       ],

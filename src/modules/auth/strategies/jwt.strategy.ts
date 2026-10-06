@@ -7,20 +7,17 @@ import { PrismaService } from '@core/prisma/prisma.service';
 interface JwtPayload {
   sub: string;
   email: string;
-  role: 'USER' | 'ADMIN';
+  role: 'USER' | 'MODERATOR';
 }
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private readonly prisma: PrismaService) {
     super({
-      jwtFromRequest: ExtractJwt.fromExtractors([
-        (request: Request) => {
-          return (request?.cookies?.access_token as string | undefined) ?? null;
-        },
-      ]),
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET ?? '',
+      secretOrKey:
+        process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || '',
     });
   }
 

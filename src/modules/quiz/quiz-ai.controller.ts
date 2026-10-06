@@ -7,7 +7,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
-import { AdminGuard } from '@modules/auth/guards/admin.guard';
+import { ModeratorGuard } from '@modules/auth/guards/moderator.guard';
 import { GenerateQuestionsDto } from './dto/generate-questions.dto';
 import { RegenerateQuestionDto } from './dto/regenerate-question.dto';
 import {
@@ -17,7 +17,7 @@ import {
 } from './quiz-ai.service';
 
 @Controller('quizzes/ai')
-@UseGuards(JwtAuthGuard, AdminGuard)
+@UseGuards(JwtAuthGuard, ModeratorGuard)
 export class QuizAiController {
   constructor(private readonly quizAiService: QuizAiService) {}
 
