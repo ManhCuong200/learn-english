@@ -11,7 +11,7 @@
     "start": "nest start",
     "start:dev": "ts-node -r tsconfig-paths/register src/main.ts",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "prisma db push --accept-data-loss --schema=src/core/prisma/schema.prisma && npm run seed:moderator && npx ts-node scripts/seed-quiz.ts && node dist/main",
+    "start:prod": "node scripts/fix-enum.js && prisma db push --accept-data-loss --schema=src/core/prisma/schema.prisma && npm run seed:moderator && npx ts-node scripts/seed-quiz.ts && node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
