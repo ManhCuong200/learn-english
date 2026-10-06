@@ -9,7 +9,8 @@ async function main() {
   const name = (process.env.MODERATOR_NAME || process.env.ADMIN_NAME)?.trim() || 'Moderator';
 
   if (!email || !password) {
-    throw new Error('MODERATOR_EMAIL and MODERATOR_PASSWORD must be configured');
+    console.warn('⚠️  Skipping seed: MODERATOR_EMAIL and MODERATOR_PASSWORD are not configured in environment variables.');
+    return;
   }
 
   const hashedPassword = await bcrypt.hash(password, 12);
