@@ -4,9 +4,9 @@ const { PrismaClient, UserRole } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function main() {
-  const email = process.env.MODERATOR_EMAIL?.trim().toLowerCase();
-  const password = process.env.MODERATOR_PASSWORD;
-  const name = process.env.MODERATOR_NAME?.trim() || 'Moderator';
+  const email = (process.env.MODERATOR_EMAIL || process.env.ADMIN_EMAIL)?.trim().toLowerCase();
+  const password = process.env.MODERATOR_PASSWORD || process.env.ADMIN_PASSWORD;
+  const name = (process.env.MODERATOR_NAME || process.env.ADMIN_NAME)?.trim() || 'Moderator';
 
   if (!email || !password) {
     throw new Error('MODERATOR_EMAIL and MODERATOR_PASSWORD must be configured');
