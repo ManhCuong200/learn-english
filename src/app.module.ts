@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
@@ -46,10 +46,10 @@ import { ToeicModule } from '@modules/toeic/toeic.module';
   ],
 })
 export class AppModule {
-  configure(consumer: import('@nestjs/common').MiddlewareConsumer) {
+  configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(RateLimitMiddleware)
-      .forRoutes({ path: '*', method: import('@nestjs/common').RequestMethod.ALL });
+      .forRoutes({ path: '*', method: RequestMethod.ALL });
   }
 }
 
