@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from '@core/prisma/prisma.module';
@@ -44,4 +45,11 @@ import { ToeicModule } from '@modules/toeic/toeic.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule {
+  configure(consumer: import('@nestjs/common').MiddlewareConsumer) {
+    consumer
+      .apply(RateLimitMiddleware)
+      .forRoutes({ path: '*', method: import('@nestjs/common').RequestMethod.ALL });
+  }
+}
+
