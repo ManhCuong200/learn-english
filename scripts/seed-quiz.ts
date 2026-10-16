@@ -1,6 +1,16 @@
 import { PrismaClient, QuizQuestionType } from '@prisma/client';
 
-const prisma = new PrismaClient();
+if (
+  process.env.DATABASE_URL &&
+  (process.env.DATABASE_URL.includes(':6543') || process.env.DATABASE_URL.includes('pooler.supabase.com')) &&
+  !process.env.DATABASE_URL.includes('pgbouncer=true')
+) {
+  process.env.DATABASE_URL += (process.env.DATABASE_URL.includes('?') ? '&' : '?') + 'pgbouncer=true';
+}
+
+const prisma = new PrismaClient({
+  datasources: process.env.DATABASE_URL ? { db: { url: process.env.DATABASE_URL } } : undefined,
+});
 
 async function main() {
   console.log('Seeding sample Quiz data...');
@@ -112,8 +122,7 @@ async function main() {
 
 main()
   .catch((e) => {
-    console.error(e);
-    process.exit(1);
+    console.warn('⚠️  Seed quiz warning (continuing startup):', e.message || e);
   })
   .finally(async () => {
     await prisma.$disconnect();

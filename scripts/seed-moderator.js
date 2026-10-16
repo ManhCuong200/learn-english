@@ -1,7 +1,16 @@
 const bcrypt = require('bcrypt');
 const { PrismaClient, UserRole } = require('@prisma/client');
+if (
+  process.env.DATABASE_URL &&
+  (process.env.DATABASE_URL.includes(':6543') || process.env.DATABASE_URL.includes('pooler.supabase.com')) &&
+  !process.env.DATABASE_URL.includes('pgbouncer=true')
+) {
+  process.env.DATABASE_URL += (process.env.DATABASE_URL.includes('?') ? '&' : '?') + 'pgbouncer=true';
+}
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  datasources: process.env.DATABASE_URL ? { db: { url: process.env.DATABASE_URL } } : undefined,
+});
 
 async function main() {
   const email = (process.env.MODERATOR_EMAIL || process.env.ADMIN_EMAIL)?.trim().toLowerCase();
@@ -41,8 +50,7 @@ async function main() {
 
 main()
   .catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
+    console.warn('⚠️  Seed moderator encountered an error (continuing startup):', error.message || error);
   })
   .finally(async () => {
     await prisma.$disconnect();
