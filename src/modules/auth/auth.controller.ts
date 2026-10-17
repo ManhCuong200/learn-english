@@ -42,10 +42,14 @@ export class AuthController {
 
   private setRefreshTokenCookie(res: Response, refreshToken: string) {
     const isProd = process.env.NODE_ENV === 'production';
+    const sameSite =
+      (process.env.COOKIE_SAME_SITE as 'lax' | 'none' | 'strict') ||
+      (isProd ? 'none' : 'lax');
+
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'lax',
+      sameSite,
       path: '/auth/refresh',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
@@ -53,10 +57,14 @@ export class AuthController {
 
   private clearRefreshTokenCookie(res: Response) {
     const isProd = process.env.NODE_ENV === 'production';
+    const sameSite =
+      (process.env.COOKIE_SAME_SITE as 'lax' | 'none' | 'strict') ||
+      (isProd ? 'none' : 'lax');
+
     const cookieOptions = {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'lax' as const,
+      sameSite,
       path: '/auth/refresh',
     };
     res.clearCookie('refreshToken', cookieOptions);
