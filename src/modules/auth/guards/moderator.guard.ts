@@ -23,7 +23,10 @@ export class ModeratorGuard implements CanActivate {
     }
 
     const moderatorEmailEnv = process.env.MODERATOR_EMAIL?.trim().toLowerCase();
-    if (moderatorEmailEnv && request.user?.email?.toLowerCase() !== moderatorEmailEnv) {
+    if (
+      moderatorEmailEnv &&
+      request.user?.email?.toLowerCase() !== moderatorEmailEnv
+    ) {
       throw new UnauthorizedException('Moderator access required');
     }
 

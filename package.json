@@ -93,7 +93,8 @@
     "moduleNameMapper": {
       "^@modules/(.*)$": "<rootDir>/modules/$1",
       "^@core/(.*)$": "<rootDir>/core/$1",
-      "^@common/(.*)$": "<rootDir>/common/$1"
+      "^@common/(.*)$": "<rootDir>/common/$1",
+      "^@common$": "<rootDir>/common/index"
     },
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {

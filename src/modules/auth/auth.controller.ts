@@ -10,21 +10,23 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { UserRole } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from '@common/guards/roles.guard';
+import { Roles } from '@common/decorators/roles.decorator';
+import { GetUser } from '@common/decorators/get-user.decorator';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { AuthGuard } from '@nestjs/passport';
 
-interface AuthenticatedRequest extends Request {
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    role: 'USER' | 'MODERATOR';
-  };
+export interface AuthUser {
+  userId: string;
+  id?: string;
+  email: string;
+  role: UserRole;
 }
 
 @Controller('auth')
@@ -38,25 +40,27 @@ export class AuthController {
     };
   }
 
-  private setCookies(res: Response, refreshToken: string) {
+  private setRefreshTokenCookie(res: Response, refreshToken: string) {
     const isProd = process.env.NODE_ENV === 'production';
-    res.cookie('refresh_token', refreshToken, {
+    res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      sameSite: 'lax',
       path: '/auth/refresh',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
   }
 
-  private clearCookies(res: Response) {
+  private clearRefreshTokenCookie(res: Response) {
     const isProd = process.env.NODE_ENV === 'production';
-    res.clearCookie('refresh_token', {
+    const cookieOptions = {
       httpOnly: true,
       secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
+      sameSite: 'lax' as const,
       path: '/auth/refresh',
-    });
+    };
+    res.clearCookie('refreshToken', cookieOptions);
+    res.clearCookie('refresh_token', cookieOptions);
   }
 
   @Post('register')
@@ -71,13 +75,17 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const reqMeta = this.getRequestMeta(req);
-    const result = await this.authService.login(dto, reqMeta);
+    const result = await this.authService.login(
+      dto,
+      reqMeta.ip,
+      reqMeta.userAgent,
+    );
 
     if ('isTwoFactorRequired' in result) {
       return { isTwoFactorRequired: true };
     }
 
-    this.setCookies(res, result.refreshToken);
+    this.setRefreshTokenCookie(res, result.refreshToken);
     return {
       accessToken: result.accessToken,
       user: result.user,
@@ -91,13 +99,17 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const reqMeta = this.getRequestMeta(req);
-    const result = await this.authService.moderatorLogin(dto, reqMeta);
+    const result = await this.authService.moderatorLogin(
+      dto,
+      reqMeta.ip,
+      reqMeta.userAgent,
+    );
 
     if ('isTwoFactorRequired' in result) {
       return { isTwoFactorRequired: true };
     }
 
-    this.setCookies(res, result.refreshToken);
+    this.setRefreshTokenCookie(res, result.refreshToken);
     return {
       accessToken: result.accessToken,
       user: result.user,
@@ -109,26 +121,60 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const token = req.cookies?.['refresh_token'] as string | undefined;
+    const token =
+      (req.cookies?.['refreshToken'] as string | undefined) ||
+      (req.cookies?.['refresh_token'] as string | undefined);
+
     if (!token) {
+      this.clearRefreshTokenCookie(res);
       throw new UnauthorizedException('No refresh token provided');
     }
-    const result = await this.authService.refreshToken(token);
-    this.setCookies(res, result.refreshToken);
-    return {
-      message: 'Tokens refreshed',
-      accessToken: result.accessToken,
-    };
+
+    try {
+      const meta = this.getRequestMeta(req);
+      const result = await this.authService.refreshTokens(
+        token,
+        meta.ip,
+        meta.userAgent,
+      );
+      this.setRefreshTokenCookie(res, result.refreshToken);
+      return {
+        accessToken: result.accessToken,
+      };
+    } catch (err) {
+      this.clearRefreshTokenCookie(res);
+      throw err;
+    }
   }
 
   @Post('logout')
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const token = req.cookies?.['refresh_token'] as string | undefined;
+    const token =
+      (req.cookies?.['refreshToken'] as string | undefined) ||
+      (req.cookies?.['refresh_token'] as string | undefined);
+
     if (token) {
-      await this.authService.revokeSession(token);
+      await this.authService.logout(token);
     }
-    this.clearCookies(res);
+    this.clearRefreshTokenCookie(res);
     return { message: 'Logout successful' };
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async getMe(@GetUser() user: AuthUser) {
+    const userId = user?.userId || user?.id || '';
+    return this.authService.getMe(userId);
+  }
+
+  @Get('moderator-only')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.MODERATOR)
+  getModeratorOnly(@GetUser() user: AuthUser) {
+    return {
+      message: 'Chào mừng Moderator! Bạn có quyền quản trị nội dung hệ thống.',
+      user,
+    };
   }
 
   @Get('google')
@@ -145,12 +191,10 @@ export class AuthController {
     const result = await this.authService.validateOAuthUser(req.user, reqMeta);
 
     if ('isTwoFactorRequired' in result) {
-      // For OAuth, we'd typically redirect to a frontend page that asks for the 2FA code.
-      // But we will just return it for now.
       return { isTwoFactorRequired: true };
     }
 
-    this.setCookies(res, result.refreshToken);
+    this.setRefreshTokenCookie(res, result.refreshToken);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     res.redirect(`${frontendUrl}#access_token=${result.accessToken}`);
   }
@@ -172,52 +216,48 @@ export class AuthController {
       return { isTwoFactorRequired: true };
     }
 
-    this.setCookies(res, result.refreshToken);
+    this.setRefreshTokenCookie(res, result.refreshToken);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     res.redirect(`${frontendUrl}#access_token=${result.accessToken}`);
   }
 
   @Get('sessions')
   @UseGuards(JwtAuthGuard)
-  async getSessions(@Req() req: AuthenticatedRequest) {
-    return this.authService.getSessions(req.user.id);
+  async getSessions(@GetUser() user: AuthUser) {
+    const userId = user?.userId || user?.id || '';
+    return this.authService.getSessions(userId);
   }
 
   @Post('sessions/:id/revoke')
   @UseGuards(JwtAuthGuard)
   async revokeSession(
-    @Req() req: AuthenticatedRequest,
+    @GetUser() user: AuthUser,
     @Param('id') sessionId: string,
   ) {
-    await this.authService.revokeSessionById(req.user.id, sessionId);
+    const userId = user?.userId || user?.id || '';
+    await this.authService.revokeSessionById(userId, sessionId);
     return { message: 'Session revoked' };
   }
 
   @Post('2fa/generate')
   @UseGuards(JwtAuthGuard)
-  async generate2FA(@Req() req: AuthenticatedRequest) {
-    return this.authService.generateTwoFactorSecret(req.user.id);
+  async generate2FA(@GetUser() user: AuthUser) {
+    const userId = user?.userId || user?.id || '';
+    return this.authService.generateTwoFactorSecret(userId);
   }
 
   @Post('2fa/turn-on')
   @UseGuards(JwtAuthGuard)
-  async turnOn2FA(
-    @Req() req: AuthenticatedRequest,
-    @Body('code') code: string,
-  ) {
-    return this.authService.turnOnTwoFactorAuthentication(req.user.id, code);
+  async turnOn2FA(@GetUser() user: AuthUser, @Body('code') code: string) {
+    const userId = user?.userId || user?.id || '';
+    return this.authService.turnOnTwoFactorAuthentication(userId, code);
   }
 
   @Post('2fa/turn-off')
   @UseGuards(JwtAuthGuard)
-  async turnOff2FA(@Req() req: AuthenticatedRequest) {
-    return this.authService.turnOffTwoFactorAuthentication(req.user.id);
-  }
-
-  @Get('me')
-  @UseGuards(JwtAuthGuard)
-  getMe(@Req() req: AuthenticatedRequest) {
-    return this.authService.getMe(req.user.id);
+  async turnOff2FA(@GetUser() user: AuthUser) {
+    const userId = user?.userId || user?.id || '';
+    return this.authService.turnOffTwoFactorAuthentication(userId);
   }
 
   @Post('forgot-password')

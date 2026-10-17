@@ -23,7 +23,7 @@ export class RateLimitMiddleware implements NestMiddleware {
     }
 
     const record = this.blacklist.get(ip)!;
-    
+
     // Nếu đã qua 10 giây (10000ms), reset số đếm về 1 (tức là 0 rồi cộng 1 cho request hiện tại)
     if (now - record.lastRequestTime > 10000) {
       record.count = 1;
@@ -39,7 +39,8 @@ export class RateLimitMiddleware implements NestMiddleware {
       return res.status(429).json({
         statusCode: 429,
         error: 'Too Many Requests',
-        message: 'Bạn đã gửi quá nhiều request. Vui lòng đợi một lát trước khi thử lại.'
+        message:
+          'Bạn đã gửi quá nhiều request. Vui lòng đợi một lát trước khi thử lại.',
       });
     }
 

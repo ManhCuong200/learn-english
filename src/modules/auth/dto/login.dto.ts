@@ -1,9 +1,10 @@
 import {
   IsEmail,
+  IsNotEmpty,
+  IsOptional,
   IsString,
   MaxLength,
   MinLength,
-  IsOptional,
 } from 'class-validator';
 
 export class LoginDto {
@@ -12,13 +13,12 @@ export class LoginDto {
   email: string;
 
   @IsString()
-  @MinLength(8)
+  @IsNotEmpty()
+  @MinLength(6)
   @MaxLength(72)
   password: string;
 
   @IsString()
-  @MinLength(6)
-  @MaxLength(6)
   @IsOptional()
   twoFactorCode?: string;
 }

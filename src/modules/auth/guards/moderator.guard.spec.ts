@@ -13,7 +13,9 @@ describe('ModeratorGuard', () => {
   }
 
   it('allows moderators', () => {
-    expect(guard.canActivate(contextWithUser({ role: 'MODERATOR' }))).toBe(true);
+    expect(guard.canActivate(contextWithUser({ role: 'MODERATOR' }))).toBe(
+      true,
+    );
   });
 
   it('rejects regular users', () => {

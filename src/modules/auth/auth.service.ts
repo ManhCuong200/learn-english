@@ -8,7 +8,7 @@ import { authenticator } from 'otplib';
 import * as qrcode from 'qrcode';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, randomUUID } from 'crypto';
 import { UserRole } from '@prisma/client';
 
 import { PrismaService } from '@core/prisma/prisma.service';
@@ -52,6 +52,7 @@ export class AuthService {
         name: dto.name.trim(),
         email,
         password: hashedPassword,
+        role: UserRole.USER,
       },
       select: {
         id: true,
@@ -68,22 +69,47 @@ export class AuthService {
     };
   }
 
-  async login(dto: LoginDto, reqMeta: RequestMeta) {
-    return this.authenticate(dto, reqMeta, 'Invalid email or password');
+  async login(
+    dto: LoginDto,
+    ipOrMeta?: string | RequestMeta,
+    userAgent?: string,
+  ) {
+    const { ip, ua } = this.parseMeta(ipOrMeta, userAgent);
+    return this.authenticate(dto, ip, ua, 'Invalid email or password');
   }
 
-  async moderatorLogin(dto: LoginDto, reqMeta: RequestMeta) {
+  async moderatorLogin(
+    dto: LoginDto,
+    ipOrMeta?: string | RequestMeta,
+    userAgent?: string,
+  ) {
+    const { ip, ua } = this.parseMeta(ipOrMeta, userAgent);
     return this.authenticate(
       dto,
-      reqMeta,
+      ip,
+      ua,
       'Invalid moderator credentials',
       UserRole.MODERATOR,
     );
   }
 
+  private parseMeta(ipOrMeta?: string | RequestMeta, userAgent?: string) {
+    if (typeof ipOrMeta === 'object' && ipOrMeta !== null) {
+      return {
+        ip: ipOrMeta.ip || 'unknown',
+        ua: ipOrMeta.userAgent || 'unknown',
+      };
+    }
+    return {
+      ip: (typeof ipOrMeta === 'string' ? ipOrMeta : undefined) || 'unknown',
+      ua: userAgent || 'unknown',
+    };
+  }
+
   private async authenticate(
     dto: LoginDto,
-    reqMeta: RequestMeta,
+    ip: string,
+    ua: string,
     errorMessage: string,
     requiredRole?: UserRole,
   ) {
@@ -93,8 +119,10 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { email },
     });
-    
-    console.log(`[AUTH DEBUG] User found: ${!!user}, Role: ${user?.role}, Required: ${requiredRole}`);
+
+    console.log(
+      `[AUTH DEBUG] User found: ${!!user}, Role: ${user?.role}, Required: ${requiredRole}`,
+    );
 
     if (!user || (requiredRole && user.role !== requiredRole)) {
       console.log(`[AUTH DEBUG] Failed at user/role check`);
@@ -102,7 +130,8 @@ export class AuthService {
     }
 
     if (requiredRole === UserRole.MODERATOR) {
-      const moderatorEmailEnv = process.env.MODERATOR_EMAIL?.trim().toLowerCase();
+      const moderatorEmailEnv =
+        process.env.MODERATOR_EMAIL?.trim().toLowerCase();
       console.log(`[AUTH DEBUG] Env moderator email: ${moderatorEmailEnv}`);
       if (moderatorEmailEnv && email !== moderatorEmailEnv) {
         console.log(`[AUTH DEBUG] Failed at moderator env email check`);
@@ -161,7 +190,7 @@ export class AuthService {
       }
     }
 
-    return this.createSession(user, reqMeta);
+    return this.createSession(user, ip, ua);
   }
 
   private async createSession(
@@ -172,7 +201,8 @@ export class AuthService {
       role: UserRole;
       isTwoFactorEnabled?: boolean;
     },
-    reqMeta: RequestMeta,
+    ip: string,
+    ua: string,
   ) {
     const latestSession = await this.prisma.session.findFirst({
       where: { userId: user.id },
@@ -182,11 +212,10 @@ export class AuthService {
 
     if (
       latestSession &&
-      (latestSession.ipAddress !== reqMeta.ip ||
-        latestSession.userAgent !== reqMeta.userAgent)
+      (latestSession.ipAddress !== ip || latestSession.userAgent !== ua)
     ) {
       this.mailService
-        .sendSecurityAlertEmail(user.email, reqMeta.ip, reqMeta.userAgent)
+        .sendSecurityAlertEmail(user.email, ip, ua)
         .catch((err) =>
           console.error(
             'Failed to send security alert email asynchronously:',
@@ -209,8 +238,8 @@ export class AuthService {
       data: {
         userId: user.id,
         refreshTokenHash,
-        ipAddress: reqMeta.ip,
-        userAgent: reqMeta.userAgent,
+        ipAddress: ip,
+        userAgent: ua,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
       },
     });
@@ -260,6 +289,7 @@ export class AuthService {
           data: {
             name: profile.name,
             email: profile.email,
+            role: UserRole.USER,
             googleId: profile.provider === 'google' ? profile.providerId : null,
             facebookId:
               profile.provider === 'facebook' ? profile.providerId : null,
@@ -268,35 +298,59 @@ export class AuthService {
       }
     }
 
-    return this.createSession(user, reqMeta);
+    return this.createSession(user, reqMeta.ip, reqMeta.userAgent);
   }
 
-  async generateTokens(userId: string, email: string, role: string) {
+  async generateTokens(userId: string, email: string, role: UserRole) {
+    const accessTokenSecret =
+      process.env.ACCESS_TOKEN_SECRET ||
+      process.env.JWT_ACCESS_SECRET ||
+      process.env.JWT_SECRET ||
+      'access-token-secret';
+    const refreshTokenSecret =
+      process.env.REFRESH_TOKEN_SECRET ||
+      process.env.JWT_REFRESH_SECRET ||
+      process.env.JWT_SECRET ||
+      'refresh-token-secret';
+
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(
         { sub: userId, email, role },
         {
-          secret: process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET,
+          secret: accessTokenSecret,
           expiresIn: '15m',
         },
       ),
       this.jwtService.signAsync(
-        { sub: userId, jti: randomBytes(16).toString('hex') },
+        { sub: userId, jti: randomUUID() },
         {
-          secret: process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
+          secret: refreshTokenSecret,
           expiresIn: '7d',
         },
       ),
     ]);
+
     return { accessToken, refreshToken };
   }
 
-  async refreshToken(token: string) {
-    if (!token) throw new UnauthorizedException('No refresh token provided');
+  async refreshTokens(
+    rawRefreshToken: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    if (!rawRefreshToken) {
+      throw new UnauthorizedException('No refresh token provided');
+    }
+
+    const refreshTokenSecret =
+      process.env.REFRESH_TOKEN_SECRET ||
+      process.env.JWT_REFRESH_SECRET ||
+      process.env.JWT_SECRET ||
+      'refresh-token-secret';
 
     try {
-      await this.jwtService.verifyAsync(token, {
-        secret: process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
+      await this.jwtService.verifyAsync(rawRefreshToken, {
+        secret: refreshTokenSecret,
       });
     } catch {
       throw new UnauthorizedException(
@@ -304,7 +358,9 @@ export class AuthService {
       );
     }
 
-    const tokenHash = createHash('sha256').update(token).digest('hex');
+    const tokenHash = createHash('sha256')
+      .update(rawRefreshToken)
+      .digest('hex');
 
     const session = await this.prisma.session.findUnique({
       where: { refreshTokenHash: tokenHash },
@@ -313,10 +369,15 @@ export class AuthService {
 
     if (!session || session.expiresAt < new Date()) {
       if (session) {
-        await this.prisma.session.delete({ where: { id: session.id } });
+        await this.prisma.session
+          .delete({ where: { id: session.id } })
+          .catch(() => null);
       }
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
+
+    // Refresh Token Rotation: Delete old session, generate new token pair, create new session
+    await this.prisma.session.delete({ where: { id: session.id } });
 
     const { accessToken, refreshToken: newRefreshToken } =
       await this.generateTokens(
@@ -324,15 +385,18 @@ export class AuthService {
         session.user.email,
         session.user.role,
       );
+
     const newRefreshTokenHash = createHash('sha256')
       .update(newRefreshToken)
       .digest('hex');
 
-    await this.prisma.session.update({
-      where: { id: session.id },
+    await this.prisma.session.create({
       data: {
+        userId: session.user.id,
         refreshTokenHash: newRefreshTokenHash,
-        lastActive: new Date(),
+        ipAddress: ipAddress || session.ipAddress,
+        userAgent: userAgent || session.userAgent,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
       },
     });
 
@@ -342,12 +406,26 @@ export class AuthService {
     };
   }
 
-  async revokeSession(token: string) {
-    if (!token) return;
-    const tokenHash = createHash('sha256').update(token).digest('hex');
+  async refreshToken(
+    rawRefreshToken: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    return this.refreshTokens(rawRefreshToken, ipAddress, userAgent);
+  }
+
+  async logout(rawRefreshToken: string) {
+    if (!rawRefreshToken) return;
+    const tokenHash = createHash('sha256')
+      .update(rawRefreshToken)
+      .digest('hex');
     await this.prisma.session.deleteMany({
       where: { refreshTokenHash: tokenHash },
     });
+  }
+
+  async revokeSession(rawRefreshToken: string) {
+    return this.logout(rawRefreshToken);
   }
 
   async getSessions(userId: string) {
@@ -466,27 +544,20 @@ export class AuthService {
       },
     });
 
-    // Không tiết lộ email có tồn tại hay không
     if (!user) {
       return {
         message: 'If the email exists, a password reset link has been sent.',
       };
     }
 
-    // Xóa các token cũ của user
     await this.prisma.passwordResetToken.deleteMany({
       where: {
         userId: user.id,
       },
     });
 
-    // Tạo token ngẫu nhiên
     const resetToken = randomBytes(32).toString('hex');
-
-    // Chỉ lưu hash của token vào database
     const tokenHash = createHash('sha256').update(resetToken).digest('hex');
-
-    // Token hết hạn sau 15 phút
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
     await this.prisma.passwordResetToken.create({
@@ -498,7 +569,6 @@ export class AuthService {
     });
 
     const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
-
     const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
 
     await this.mailService.sendPasswordResetEmail(user.email, resetUrl);
@@ -543,14 +613,12 @@ export class AuthService {
         },
       }),
 
-      // Token chỉ được sử dụng một lần
       this.prisma.passwordResetToken.delete({
         where: {
           id: resetToken.id,
         },
       }),
 
-      // Xóa các reset token khác của user
       this.prisma.passwordResetToken.deleteMany({
         where: {
           userId: resetToken.userId,

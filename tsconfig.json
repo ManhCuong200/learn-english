@@ -24,6 +24,7 @@
     "paths": {
       "@modules/*": ["src/modules/*"],
       "@core/*": ["src/core/*"],
+      "@common": ["src/common/index.ts"],
       "@common/*": ["src/common/*"]
     }
   }
